@@ -19,7 +19,7 @@ export function HeroSlideshow({ slides = [] }: HeroSlideshowProps) {
           src: s.image_url || s.src,
           title: (s.title && s.title !== 'null' && s.title !== 'undefined') ? String(s.title).trim() : '',
           location: (s.location && s.location !== 'null' && s.location !== 'undefined') ? String(s.location).trim() : '',
-          alt: s.seo_alt || s.alt_text || s.title || 'Soul of Nepal',
+          alt: s.seo_alt || s.alt_text || s.title || 'Nepalora',
           like_count: s.like_count || 0,
         }))
       : []

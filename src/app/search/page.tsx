@@ -26,7 +26,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           <Badge tone="blue">Explore Knowledge</Badge>
         </div>
         <h1 className="font-display text-3xl sm:text-4xl font-bold text-ink mb-2">
-          Search Soul of Nepal
+          Search Nepalora
         </h1>
         <p className="text-xs sm:text-sm text-ink-secondary mb-6">
           Instant search across article titles, body paragraphs, keywords, categories, and tags.

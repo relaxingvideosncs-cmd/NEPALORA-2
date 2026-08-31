@@ -18,7 +18,10 @@ import {
   Sliders,
   X,
   Heart,
-  Tag,
+  Square,
+  CheckSquare,
+  AlertCircle,
+  Check,
 } from 'lucide-react'
 import { GalleryPhotoRecord, GallerySlot } from '@/types/database'
 import { compressImageClient } from '@/lib/cloudinary/clientCompress'
@@ -91,6 +94,11 @@ export default function StaffGalleryControllerPage() {
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
+  // Multi-select state for bulk deletion
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+
   // Add / Edit Modal State
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<Partial<GalleryPhotoRecord> | null>(null)
@@ -99,6 +107,7 @@ export default function StaffGalleryControllerPage() {
   // Load items for active slot
   const loadItems = async (slot: GallerySlot) => {
     setLoading(true)
+    setSelectedIds(new Set()) // Clear selection when switching slots
     try {
       const res = await fetch(`/api/galleries?slot=${slot}`)
       const data = await safeParseResponse(res)
@@ -266,10 +275,55 @@ export default function StaffGalleryControllerPage() {
 
       setNotice({ type: 'success', message: `Deleted "${title}" from database and Cloudinary.` })
       setItems((prev) => prev.filter((it) => it.id !== id))
+      setSelectedIds((prev) => { const n = new Set(prev); n.delete(id); return n })
       setTimeout(() => setNotice(null), 4000)
     } catch (err: any) {
       setNotice({ type: 'error', message: err.message || 'Delete failed' })
     }
+  }
+
+  // Bulk delete selected gallery photos
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return
+    setBulkDeleting(true)
+    setNotice(null)
+
+    const ids = Array.from(selectedIds)
+    let deletedCount = 0
+    const errors: string[] = []
+
+    for (const id of ids) {
+      try {
+        const res = await fetch(`/api/galleries?id=${id}`, { method: 'DELETE' })
+        const data = await safeParseResponse(res)
+        if (!res.ok || data.error) throw new Error(data.error || 'Delete failed')
+        deletedCount++
+      } catch (err: any) {
+        errors.push(err.message)
+      }
+    }
+
+    setItems((prev) => prev.filter((it) => !selectedIds.has(it.id)))
+    setSelectedIds(new Set())
+    setBulkDeleteConfirm(false)
+    setBulkDeleting(false)
+
+    if (errors.length === 0) {
+      setNotice({ type: 'success', message: `Deleted ${deletedCount} photograph(s) successfully.` })
+    } else {
+      setNotice({ type: 'error', message: `Deleted ${deletedCount}, failed ${errors.length}. ${errors[0]}` })
+    }
+    setTimeout(() => setNotice(null), 6000)
+  }
+
+  // Toggle selection of single item
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   }
 
   const activeSlotConfig = FIVE_GALLERIES_CONFIG.find((s) => s.id === activeSlot)!
@@ -348,11 +402,11 @@ export default function StaffGalleryControllerPage() {
               type="button"
               onClick={() => setActiveSlot(slot.id)}
               className={`
-                flex flex-col items-start p-3 rounded-xl text-left transition-all cursor-pointer min-h-[64px] justify-between
+                flex flex-col items-start p-3 rounded-xl text-left transition-all cursor-pointer min-h-[64px] justify-between border
                 ${
                   isActive
-                    ? 'bg-ink text-bg shadow-xs'
-                    : 'bg-transparent text-ink-secondary hover:text-ink hover:bg-bg'
+                    ? 'bg-accent-blue/10 text-accent-blue border-accent-blue/30 shadow-2xs font-bold'
+                    : 'bg-transparent text-ink-secondary hover:text-ink hover:bg-bg border-transparent'
                 }
               `}
             >
@@ -360,7 +414,7 @@ export default function StaffGalleryControllerPage() {
                 <span>{slot.icon}</span>
                 <span className="truncate">{slot.name}</span>
               </div>
-              <span className={`text-[10px] ${isActive ? 'text-bg/75' : 'text-ink-tertiary'}`}>
+              <span className={`text-[10px] ${isActive ? 'text-accent-blue/70' : 'text-ink-tertiary'}`}>
                 Slot: {slot.id}
               </span>
             </button>
@@ -424,17 +478,65 @@ export default function StaffGalleryControllerPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-          {items.map((item, index) => (
+        <>
+          {/* Multi-select toolbar */}
+          {items.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 py-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedIds.size === items.length) setSelectedIds(new Set())
+                  else setSelectedIds(new Set(items.map((it) => it.id)))
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-pill border border-hairline bg-bg-elevated text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer"
+              >
+                {selectedIds.size === items.length ? (
+                  <CheckSquare className="w-3.5 h-3.5 text-accent-blue" />
+                ) : (
+                  <Square className="w-3.5 h-3.5" />
+                )}
+                <span>{selectedIds.size === items.length ? 'Deselect All' : 'Select All in Slot'}</span>
+              </button>
+
+              {selectedIds.size > 0 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setBulkDeleteConfirm(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-pill border border-accent-red/30 bg-accent-red/10 text-xs font-semibold text-accent-red hover:bg-accent-red/20 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete {selectedIds.size} selected</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedIds(new Set())}
+                    className="inline-flex items-center gap-1 text-xs text-ink-tertiary hover:text-ink cursor-pointer min-h-[36px] px-2"
+                  >
+                    <X className="w-3 h-3" />
+                    Clear
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+          {items.map((item, index) => {
+            const isSelected = selectedIds.has(item.id)
+            return (
             <div
               key={item.id}
               className={`
                 rounded-2xl border bg-bg-elevated overflow-hidden flex flex-col justify-between shadow-2xs transition-all
-                ${item.is_active ? 'border-hairline' : 'border-hairline opacity-60 bg-bg'}
+                ${isSelected ? 'border-accent-blue ring-2 ring-accent-blue/30' : item.is_active ? 'border-hairline' : 'border-hairline opacity-60 bg-bg'}
               `}
             >
               {/* Photo Canvas Preview */}
-              <div className="relative aspect-[16/10] bg-neutral-200 dark:bg-neutral-800 overflow-hidden flex items-center justify-center">
+              <div
+                className="relative aspect-[16/10] bg-neutral-200 dark:bg-neutral-800 overflow-hidden flex items-center justify-center cursor-pointer"
+                onClick={() => toggleSelect(item.id)}
+              >
                 {item.image_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -447,8 +549,17 @@ export default function StaffGalleryControllerPage() {
                   <Images className="w-8 h-8 text-ink-tertiary" />
                 )}
 
+                {/* Checkbox overlay */}
+                <div className={`absolute top-2.5 left-2.5 z-20 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                  <div className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-colors ${
+                    isSelected ? 'bg-accent-blue border-accent-blue' : 'bg-white/80 border-white/60 backdrop-blur-sm'
+                  }`}>
+                    {isSelected && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                </div>
+
                 {/* Index Pill */}
-                <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-black/75 text-white backdrop-blur-xs z-10">
+                <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-black/75 text-white backdrop-blur-xs z-10">
                   #{index + 1}
                 </div>
 
@@ -459,7 +570,7 @@ export default function StaffGalleryControllerPage() {
                 </div>
 
                 {/* Status Pill */}
-                <div className="absolute top-2.5 right-2.5 z-10">
+                <div className="absolute bottom-2.5 right-2.5 z-10">
                   {item.is_active ? (
                     <span className="px-2 py-0.5 rounded-pill text-[10px] font-bold bg-emerald-500/90 text-white shadow-xs">
                       Live
@@ -470,6 +581,9 @@ export default function StaffGalleryControllerPage() {
                     </span>
                   )}
                 </div>
+
+                {/* Selected overlay tint */}
+                {isSelected && <div className="absolute inset-0 bg-accent-blue/10 pointer-events-none" />}
               </div>
 
               {/* Photo Information */}
@@ -561,7 +675,55 @@ export default function StaffGalleryControllerPage() {
                 </div>
               </div>
             </div>
-          ))}
+            )
+          })}
+          </div>
+        </>
+      )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {bulkDeleteConfirm && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-bg-elevated border border-hairline rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-full bg-accent-red/10 flex-shrink-0">
+                <AlertCircle className="w-5 h-5 text-accent-red" />
+              </div>
+              <div>
+                <h3 className="font-display font-bold text-base text-ink">
+                  Delete {selectedIds.size} photograph{selectedIds.size !== 1 ? 's' : ''}?
+                </h3>
+                <p className="text-xs text-ink-secondary mt-1 leading-relaxed">
+                  This will permanently remove {selectedIds.size} photograph{selectedIds.size !== 1 ? 's' : ''} from
+                  Cloudinary storage and the database. <strong className="text-ink">This cannot be undone.</strong>
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setBulkDeleteConfirm(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <button
+                type="button"
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 min-h-[40px] rounded-pill bg-accent-red text-white text-xs font-bold transition-all active:scale-95 disabled:opacity-60 cursor-pointer"
+              >
+                {bulkDeleting ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="w-3.5 h-3.5" />
+                )}
+                <span>{bulkDeleting ? 'Deleting...' : `Delete ${selectedIds.size}`}</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

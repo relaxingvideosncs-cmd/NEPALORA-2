@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export const metadata: Metadata = {
-  title: 'All Articles & Field Guides | Soul of Nepal',
+  title: 'All Articles & Field Guides | Nepalora',
   description:
     'Browse all independent Nepal travel field guides, Himalayan trekking routes, visa checklists, and post-trek wellness articles.',
 }

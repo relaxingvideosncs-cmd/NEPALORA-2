@@ -34,7 +34,7 @@ const SAMPLE_TEMPLATE: ArticleJSON = {
   slug: 'complete-himalayan-trekking-guide',
   category: 'trekking-adventure',
   excerpt: 'A practical, structured guide to planning, packing, and preparing for high-altitude treks in Nepal.',
-  author: 'Soul of Nepal Editorial',
+  author: 'Nepalora Editorial',
   tags: ['trekking', 'nepal', 'himalayas', 'safety'],
   blocks: [
     {
@@ -63,8 +63,8 @@ const SAMPLE_TEMPLATE: ArticleJSON = {
   ],
 }
 
-const MASTER_AI_SYSTEM_PROMPT = `You are the Soul of Nepal Publishing AI.
-Your job is to transform any article draft into clean, valid JSON for the Soul of Nepal platform.
+const MASTER_AI_SYSTEM_PROMPT = `You are the Nepalora Publishing AI.
+Your job is to transform any article draft into clean, valid JSON for the Nepalora platform.
 
 CRITICAL FORMATTING REQUIREMENT:
 - Output MUST be pure valid RFC 8259 JSON ONLY.
@@ -80,7 +80,7 @@ JSON SCHEMA STRUCTURE:
   "slug": "lowercase-hyphen-separated-slug",
   "category": "trekking-adventure",
   "excerpt": "A concise 1-2 sentence compelling summary of the guide.",
-  "author": "Soul of Nepal Editorial",
+  "author": "Nepalora Editorial",
   "tags": ["nepal", "himalayas", "trekking", "guide"],
   "featured_image": {
     "src": "https://images.unsplash.com/photo-...",
@@ -836,7 +836,7 @@ Now output ONLY the JSON structure conforming to the schema above:`
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
               <span className="text-xs text-ink-secondary">
-                Ready to transform into Soul of Nepal JSON schema.
+                Ready to transform into Nepalora JSON schema.
               </span>
 
               <Button

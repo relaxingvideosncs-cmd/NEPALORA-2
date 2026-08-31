@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Loader2,
+  Calendar,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 
@@ -71,6 +72,7 @@ export default function ManageArticlesClientPage() {
 
   return (
     <div className="space-y-6 py-2 sm:py-4">
+      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-hairline pb-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -80,13 +82,13 @@ export default function ManageArticlesClientPage() {
             Article Management
           </h1>
           <p className="text-xs sm:text-sm text-ink-secondary mt-0.5">
-            Overview of all published, drafted, and archived Soul of Nepal guides.
+            Overview of all published, drafted, and archived Nepalora guides.
           </p>
         </div>
 
         <Link
           href="/staff/import"
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-pill text-xs font-semibold text-white shadow-sm transition-all active:scale-95 flex-shrink-0"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-pill text-xs font-semibold text-white shadow-sm transition-all active:scale-95 flex-shrink-0 cursor-pointer"
           style={{ backgroundImage: 'var(--accent-gradient)' }}
         >
           <Plus className="w-4 h-4" />
@@ -103,9 +105,9 @@ export default function ManageArticlesClientPage() {
           }`}
         >
           {notice.type === 'success' ? (
-            <CheckCircle2 className="w-4 h-4" />
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
           ) : (
-            <AlertTriangle className="w-4 h-4" />
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
           )}
           <span>{notice.message}</span>
         </div>
@@ -120,25 +122,28 @@ export default function ManageArticlesClientPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search articles by title, slug..."
-            className="w-full pl-9 pr-4 py-2.5 min-h-[44px] bg-bg-elevated border border-hairline rounded-pill text-xs text-ink focus:outline-none focus:border-hairline-strong transition-all"
+            className="w-full pl-9 pr-4 py-2.5 min-h-[44px] bg-bg-elevated border border-hairline rounded-pill text-xs text-ink focus:outline-none focus:border-hairline-strong transition-all placeholder:text-ink-tertiary"
           />
         </div>
 
         <div className="flex items-center gap-1 bg-bg-elevated border border-hairline p-1 rounded-pill text-xs font-semibold overflow-x-auto">
-          {['all', 'published', 'draft', 'archived'].map((st) => (
-            <button
-              key={st}
-              type="button"
-              onClick={() => setSelectedStatus(st)}
-              className={`px-3 py-1.5 rounded-pill capitalize transition-all min-h-[36px] text-xs cursor-pointer ${
-                selectedStatus === st
-                  ? 'bg-ink text-bg shadow-xs font-bold'
-                  : 'text-ink-secondary hover:text-ink'
-              }`}
-            >
-              {st}
-            </button>
-          ))}
+          {['all', 'published', 'draft', 'archived'].map((st) => {
+            const isSelected = selectedStatus === st
+            return (
+              <button
+                key={st}
+                type="button"
+                onClick={() => setSelectedStatus(st)}
+                className={`px-3 py-1.5 rounded-pill capitalize transition-all min-h-[36px] text-xs cursor-pointer select-none border ${
+                  isSelected
+                    ? 'bg-accent-blue/10 text-accent-blue border-accent-blue/30 font-bold shadow-2xs'
+                    : 'text-ink-secondary hover:text-ink border-transparent'
+                }`}
+              >
+                {st}
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -148,7 +153,7 @@ export default function ManageArticlesClientPage() {
         </div>
       ) : (
         <>
-          {/* Mobile Card List (Shown on mobile screens < 640px) */}
+          {/* Mobile Card List (Shown on screens < 640px) */}
           <div className="block sm:hidden space-y-3">
             {filteredArticles.length === 0 ? (
               <div className="p-8 border border-dashed border-hairline rounded-2xl text-center text-ink-tertiary bg-bg-elevated space-y-2">
@@ -159,13 +164,14 @@ export default function ManageArticlesClientPage() {
               filteredArticles.map((art) => (
                 <div
                   key={art.id}
-                  className="p-4 rounded-xl border border-hairline bg-bg-elevated shadow-xs space-y-3"
+                  className="p-4 rounded-2xl border border-hairline bg-bg-elevated shadow-2xs space-y-3"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <Badge tone={art.status === 'published' ? 'blue' : 'neutral'}>
                       {art.status}
                     </Badge>
-                    <span className="text-[10px] font-mono text-ink-tertiary">
+                    <span className="text-[10px] font-mono text-ink-tertiary flex items-center gap-1">
+                      <Calendar className="w-3 h-3 text-ink-tertiary" />
                       {new Date(art.updated_at).toLocaleDateString()}
                     </span>
                   </div>
@@ -177,19 +183,21 @@ export default function ManageArticlesClientPage() {
                     <p className="text-[11px] text-ink-tertiary font-mono mt-0.5">/{art.slug}</p>
                   </div>
 
-                  <div className="pt-2 border-t border-hairline flex items-center justify-between">
-                    <span className="text-xs text-ink-secondary">{art.category?.name || 'General'}</span>
-                    <div className="flex items-center gap-2">
+                  <div className="pt-2.5 border-t border-hairline flex items-center justify-between">
+                    <span className="text-xs text-ink-secondary font-medium">
+                      {art.category?.name || 'General'}
+                    </span>
+                    <div className="flex items-center gap-1">
                       <Link
                         href={`/article/${art.slug}`}
-                        className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-ink-secondary hover:text-ink"
+                        className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-ink-secondary hover:text-ink rounded-lg"
                         title="View Live Guide"
                       >
                         <Eye className="w-4 h-4" />
                       </Link>
                       <Link
                         href={`/staff/import?edit=${art.slug}`}
-                        className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-accent-blue"
+                        className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-accent-blue rounded-lg"
                         title="Edit Guide"
                       >
                         <Edit3 className="w-4 h-4" />
@@ -197,7 +205,7 @@ export default function ManageArticlesClientPage() {
                       <button
                         type="button"
                         onClick={() => handleDeleteArticle(art.id, art.title)}
-                        className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-accent-red"
+                        className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-accent-red rounded-lg cursor-pointer"
                         title="Delete Article"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -209,75 +217,80 @@ export default function ManageArticlesClientPage() {
             )}
           </div>
 
-          {/* Desktop Table (Hidden on mobile screens < 640px) */}
-          <div className="hidden sm:block border border-hairline rounded-2xl bg-bg-elevated overflow-hidden shadow-xs">
+          {/* Desktop Table (Hidden on screens < 640px) */}
+          <div className="hidden sm:block border border-hairline rounded-2xl bg-bg-elevated overflow-hidden shadow-2xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-bg border-b border-hairline text-ink-tertiary uppercase tracking-wider font-semibold">
+                <thead className="bg-bg/80 border-b border-hairline text-ink-tertiary uppercase tracking-wider font-semibold text-[11px]">
                   <tr>
-                    <th className="px-4 py-3">Title & Slug</th>
-                    <th className="px-4 py-3">Category Pillar</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Last Updated</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
+                    <th className="px-6 py-4 min-w-[280px]">Title &amp; Slug</th>
+                    <th className="px-6 py-4 min-w-[120px]">Category</th>
+                    <th className="px-6 py-4 min-w-[100px]">Status</th>
+                    <th className="px-6 py-4 min-w-[120px]">Last Updated</th>
+                    <th className="px-6 py-4 text-right min-w-[130px]">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-hairline text-ink">
                   {filteredArticles.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-10 text-center text-ink-tertiary space-y-2">
-                        <FileText className="w-6 h-6 mx-auto text-ink-tertiary" />
-                        <p className="font-semibold text-ink">No articles matched your criteria.</p>
+                      <td colSpan={5} className="px-6 py-16 text-center text-ink-tertiary space-y-2">
+                        <FileText className="w-7 h-7 mx-auto text-ink-tertiary" />
+                        <p className="font-semibold text-ink mt-2">No articles matched your criteria.</p>
                       </td>
                     </tr>
                   ) : (
                     filteredArticles.map((art) => (
-                      <tr key={art.id} className="hover:bg-bg/60 transition-colors">
-                        <td className="px-4 py-3">
+                      <tr key={art.id} className="hover:bg-bg/50 transition-colors group">
+                        <td className="px-6 py-5 max-w-xs">
                           <Link
                             href={`/article/${art.slug}`}
-                            className="font-bold text-ink hover:text-accent-blue block line-clamp-1 underline-draw"
+                            className="font-bold text-sm text-ink hover:text-accent-blue block line-clamp-2 underline-draw leading-snug"
                           >
                             {art.title}
                           </Link>
-                          <span className="text-[10px] text-ink-tertiary font-mono">/{art.slug}</span>
+                          <span className="text-[11px] text-ink-tertiary font-mono mt-1 block">/{art.slug}</span>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className="bg-bg px-2.5 py-1 rounded-pill border border-hairline text-ink font-medium">
+                        <td className="px-6 py-5">
+                          <span className="bg-bg px-2.5 py-1 rounded-pill border border-hairline text-ink font-medium text-[11px] whitespace-nowrap">
                             {art.category?.name || 'General'}
                           </span>
                         </td>
-                        <td className="px-4 py-3">
-                          <Badge tone={art.status === 'published' ? 'blue' : 'neutral'}>
+                        <td className="px-6 py-5">
+                          <Badge tone={art.status === 'published' ? 'blue' : art.status === 'draft' ? 'neutral' : 'neutral'}>
                             {art.status}
                           </Badge>
                         </td>
-                        <td className="px-4 py-3 text-ink-tertiary text-[11px] font-mono">
-                          {new Date(art.updated_at).toLocaleDateString()}
+                        <td className="px-6 py-5 text-ink-tertiary text-[11px] font-mono whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            <Calendar className="w-3 h-3 text-ink-tertiary" />
+                            {new Date(art.updated_at).toLocaleDateString()}
+                          </div>
                         </td>
-                        <td className="px-4 py-3 text-right space-x-2">
-                          <Link
-                            href={`/article/${art.slug}`}
-                            className="inline-p-1 text-ink-secondary hover:text-ink"
-                            title="View Live Guide"
-                          >
-                            <Eye className="w-4 h-4 inline" />
-                          </Link>
-                          <Link
-                            href={`/staff/import?edit=${art.slug}`}
-                            className="inline-p-1 text-accent-blue"
-                            title="Edit Guide"
-                          >
-                            <Edit3 className="w-4 h-4 inline" />
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteArticle(art.id, art.title)}
-                            className="inline-p-1 text-accent-red"
-                            title="Delete Article"
-                          >
-                            <Trash2 className="w-4 h-4 inline" />
-                          </button>
+                        <td className="px-6 py-5 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Link
+                              href={`/article/${art.slug}`}
+                              className="p-2 rounded-lg border border-hairline/50 text-ink-secondary hover:text-ink hover:bg-bg transition-colors"
+                              title="View Live Guide"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Link>
+                            <Link
+                              href={`/staff/import?edit=${art.slug}`}
+                              className="p-2 rounded-lg border border-accent-blue/30 text-accent-blue hover:bg-accent-blue/10 transition-colors"
+                              title="Edit Guide"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteArticle(art.id, art.title)}
+                              className="p-2 rounded-lg border border-accent-red/20 text-accent-red hover:bg-accent-red/10 transition-colors cursor-pointer"
+                              title="Delete Article"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))

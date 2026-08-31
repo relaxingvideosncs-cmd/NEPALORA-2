@@ -28,7 +28,7 @@ export default async function ManageCategoriesPage() {
           Content Pillars & Categories
         </h1>
         <p className="text-xs sm:text-sm text-ink-secondary mt-0.5">
-          The 3 primary editorial pillars of Soul of Nepal.
+          The 3 primary editorial pillars of Nepalora.
         </p>
       </div>
 

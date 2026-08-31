@@ -212,7 +212,7 @@ export function ImageViewerModal({
     if (navigator.share) {
       navigator
         .share({
-          title: photo.title || 'Soul of Nepal Photograph',
+          title: photo.title || 'Nepalora Photograph',
           text: photo.caption || photo.title,
           url: shareUrl,
         })
@@ -321,7 +321,7 @@ export function ImageViewerModal({
           <img
             key={webSrc}
             src={webSrc}
-            alt={currentPhoto.alt || currentPhoto.title || 'Soul of Nepal Photograph'}
+            alt={currentPhoto.alt || currentPhoto.title || 'Nepalora Photograph'}
             className="
               max-h-[54vh] md:max-h-[84vh] max-w-full w-auto h-auto
               object-contain select-none m-auto block rounded-sm
@@ -545,7 +545,7 @@ export function ImageViewerModal({
                 {currentLike.count === 1 ? 'like' : 'likes'}
               </p>
               <p className="text-[10px] text-white/50 uppercase font-mono tracking-wider">
-                Field Guide • Soul of Nepal
+                Field Guide • Nepalora
               </p>
             </div>
           </div>

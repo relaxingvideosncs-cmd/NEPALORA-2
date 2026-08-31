@@ -7,19 +7,19 @@ import { Search, Menu, X, ArrowUpRight } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { SiteSettingsRecord } from '@/types/database'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
+import { StaffHeader } from '@/components/layout/StaffHeader'
 
 interface HeaderProps {
   isMaintenance?: boolean
   settings?: SiteSettingsRecord | null
 }
 
-export function Header({ isMaintenance = false, settings }: HeaderProps) {
+function PublicHeader({ isMaintenance = false, settings }: HeaderProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [mounted, setMounted] = useState(false)
-  const isStaffRoute = pathname?.startsWith('/staff')
 
   useEffect(() => {
     setMounted(true)
@@ -71,7 +71,7 @@ export function Header({ isMaintenance = false, settings }: HeaderProps) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [router])
 
-  const showNav = !isMaintenance || isStaffRoute
+  const showNav = !isMaintenance
 
   const navLinks = [
     { href: '/prepare-for-nepal', label: 'Preparation for Nepal' },
@@ -81,7 +81,7 @@ export function Header({ isMaintenance = false, settings }: HeaderProps) {
     { href: '/about', label: 'About' },
   ]
 
-  const brandName = settings?.brand_name || 'Soul of Nepal'
+  const brandName = settings?.brand_name || 'Nepalora'
   const logoUrl = settings?.full_logo_url || settings?.logo_url
 
   return (
@@ -161,99 +161,134 @@ export function Header({ isMaintenance = false, settings }: HeaderProps) {
                 </kbd>
               </Link>
 
-              {/* Dark/Light Theme Toggle */}
-              <div className="hidden sm:block">
-                <ThemeToggle />
-              </div>
+              {/* Dark / Light Mode Toggle */}
+              <ThemeToggle />
 
-              {/* Mobile Menu Hamburger Button (Touch Target >= 44px) */}
+              {/* Mobile Hamburger Trigger (Accessible 44px min tap target) */}
               <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                aria-label={mobileMenuOpen ? 'Close Menu' : 'Open Menu'}
-                aria-expanded={mobileMenuOpen}
                 type="button"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="
-                  md:hidden flex items-center justify-center w-10 h-10 min-h-[44px] min-w-[44px]
-                  rounded-pill border border-hairline bg-bg-elevated text-ink
-                  hover:border-hairline-strong transition-all active:scale-[0.94] cursor-pointer
+                  md:hidden min-h-[44px] min-w-[44px] p-2 rounded-pill
+                  border border-hairline bg-bg-elevated text-ink
+                  hover:bg-bg transition-colors flex items-center justify-center
+                  active:scale-95 shadow-2xs cursor-pointer
                 "
+                aria-label={mobileMenuOpen ? 'Close Menu' : 'Open Navigation Menu'}
+                aria-expanded={mobileMenuOpen}
               >
                 {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
             </div>
           ) : (
-            <div className="text-xs font-semibold px-3.5 py-1 bg-accent-red/10 text-accent-red border border-accent-red/20 rounded-pill">
-              Maintenance Mode
+            <div className="flex items-center gap-3">
+              <ThemeToggle />
             </div>
           )}
         </div>
       </header>
 
-      {/* Full-Screen Mobile Slide-Out Drawer Rendered Directly via Portal to Avoid Ancestor Stacking Traps */}
+      {/* Extreme Ergonomics Mobile Navigation Drawer (Portaled directly into body) */}
       {mounted &&
-        mobileMenuOpen &&
         createPortal(
           <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Mobile Navigation Menu"
-            className="
-              md:hidden fixed inset-0 top-16 z-[99999]
-              w-screen h-[calc(100dvh-64px)]
-              bg-bg dark:bg-[#0a0a0c] text-ink
-              border-t border-hairline
-              flex flex-col justify-between p-6 sm:p-8
-              overflow-y-auto shadow-2xl animate-in fade-in-0 slide-in-from-top-2 duration-200
-            "
+            className={`
+              fixed inset-0 z-[99999] bg-black/60 backdrop-blur-md md:hidden
+              transition-opacity duration-200 ease-out
+              ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}
+            `}
+            onClick={() => setMobileMenuOpen(false)}
           >
-            <nav className="flex flex-col gap-3.5">
-              {navLinks.map((link) => {
-                const isActive = pathname === link.href
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
+            <div
+              className={`
+                absolute top-0 right-0 bottom-0 w-4/5 max-w-sm
+                bg-bg-elevated border-l border-hairline p-6 shadow-2xl
+                flex flex-col justify-between overflow-y-auto
+                transition-transform duration-300 ease-out
+                ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}
+              `}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="space-y-6">
+                {/* Mobile Drawer Header */}
+                <div className="flex items-center justify-between border-b border-hairline pb-4">
+                  <span className="font-display font-bold text-lg text-ink">
+                    Navigation
+                  </span>
+                  <button
+                    type="button"
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`
-                      flex items-center justify-between p-4.5 rounded-2xl text-base sm:text-lg font-bold
-                      border transition-all min-h-[56px] active:scale-[0.98] shadow-xs
-                      ${
-                        isActive
-                          ? 'bg-bg-elevated text-ink border-hairline-strong shadow-sm'
-                          : 'bg-bg-elevated/70 text-ink-secondary border-hairline hover:text-ink hover:bg-bg-elevated'
-                      }
-                    `}
+                    className="min-h-[44px] min-w-[44px] p-2 rounded-full text-ink hover:bg-bg flex items-center justify-center"
+                    aria-label="Close menu"
                   >
-                    <span className="underline-draw">{link.label}</span>
-                    <ArrowUpRight className="w-4 h-4 text-ink-tertiary" />
-                  </Link>
-                )
-              })}
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
 
-              <Link
-                href="/search"
-                onClick={() => setMobileMenuOpen(false)}
-                className="
-                  flex items-center gap-3 p-4.5 rounded-2xl text-base sm:text-lg font-bold
-                  bg-bg-elevated border border-hairline text-ink min-h-[56px]
-                  active:scale-[0.98] shadow-xs hover:border-hairline-strong
-                "
-              >
-                <Search className="w-5 h-5 text-accent-blue" />
-                <span>Search All Guides</span>
-              </Link>
-            </nav>
+                {/* Navigation Links */}
+                <nav className="space-y-2">
+                  {navLinks.map((link) => {
+                    const isActive = pathname === link.href
 
-            <div className="pt-6 border-t border-hairline flex items-center justify-between mt-8">
-              <div>
-                <span className="text-sm font-semibold text-ink block">Appearance Theme</span>
-                <span className="text-xs text-ink-tertiary">Switch between light & dark mode</span>
+                    return (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`
+                          block px-4 py-3 rounded-xl text-base font-semibold transition-all min-h-[48px] flex items-center
+                          ${
+                            isActive
+                              ? 'bg-ink text-bg shadow-sm'
+                              : 'text-ink-secondary hover:text-ink hover:bg-bg'
+                          }
+                        `}
+                      >
+                        {link.label}
+                      </Link>
+                    )
+                  })}
+                </nav>
               </div>
-              <ThemeToggle />
+
+              {/* Mobile Drawer Bottom Section */}
+              <div className="border-t border-hairline pt-6 space-y-4">
+                <Link
+                  href="/search"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="
+                    flex items-center justify-between p-3.5 rounded-xl
+                    bg-bg border border-hairline text-sm font-medium text-ink
+                    min-h-[48px]
+                  "
+                >
+                  <span className="flex items-center gap-2">
+                    <Search className="w-4 h-4 text-ink-tertiary" />
+                    Search guides
+                  </span>
+                  <ArrowUpRight className="w-4 h-4 text-ink-tertiary" />
+                </Link>
+
+                <div className="flex items-center justify-between pt-2">
+                  <span className="text-xs text-ink-secondary font-medium">Theme</span>
+                  <ThemeToggle />
+                </div>
+              </div>
             </div>
           </div>,
           document.body
         )}
     </>
   )
+}
+
+export function Header({ isMaintenance = false, settings }: HeaderProps) {
+  const pathname = usePathname()
+  const isStaffRoute = pathname?.startsWith('/staff')
+
+  if (isStaffRoute) {
+    return <StaffHeader settings={settings} />
+  }
+
+  return <PublicHeader isMaintenance={isMaintenance} settings={settings} />
 }

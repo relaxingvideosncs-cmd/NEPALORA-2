@@ -24,14 +24,53 @@ export function Footer({ isMaintenance = false, settings }: FooterProps) {
   const isStaffRoute = pathname?.startsWith('/staff')
   const showPublicLinks = !isMaintenance || isStaffRoute
 
-  const brandName = settings?.brand_name || 'Soul of Nepal'
-  const tagline = settings?.tagline || 'Himalayan Travel, Trekking & Mindful Recovery'
+  const brandName = settings?.brand_name || 'Nepalora'
+  const tagline = settings?.tagline || 'Nepal Travel, Trekking & Wellness Guides'
   const description =
     settings?.description ||
-    'Independent Nepal travel, trekking, wellness and adventure knowledge platform.'
+    'Your complete guide to Nepal — expert trekking routes, Himalayan adventure preparation, and post-trek wellness.'
   const currentYear = new Date().getFullYear()
   const foundedYear = settings?.founded_year || 2026
   const copyrightOwner = settings?.legal_business_name || brandName
+
+  if (isStaffRoute) {
+    return (
+      <footer className="border-t border-hairline bg-bg-elevated/50 text-ink-tertiary text-xs mt-12 py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-ink">{brandName}</span>
+            <span>•</span>
+            <span>Staff Admin Console</span>
+          </div>
+          <div className="flex items-center gap-4 text-ink-secondary">
+            <Link href="/staff/dashboard" className="hover:text-ink transition-colors">
+              Dashboard
+            </Link>
+            <Link href="/staff/articles" className="hover:text-ink transition-colors">
+              Articles
+            </Link>
+            <Link href="/staff/import" className="hover:text-ink transition-colors">
+              Studio
+            </Link>
+            <Link href="/staff/galleries" className="hover:text-ink transition-colors">
+              Galleries
+            </Link>
+            <Link href="/staff/settings" className="hover:text-ink transition-colors">
+              Settings
+            </Link>
+            <Link
+              href="/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-ink transition-colors text-accent-blue font-medium"
+            >
+              Live Site ↗
+            </Link>
+          </div>
+        </div>
+      </footer>
+    )
+  }
 
   return (
     <footer className="border-t border-hairline bg-bg-elevated/40 text-ink-secondary text-sm mt-16 sm:mt-24 py-12">

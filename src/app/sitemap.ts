@@ -2,7 +2,7 @@ import { MetadataRoute } from 'next'
 import { createPublicClient } from '@/lib/supabase/server'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://soulofnepal.com'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://nepalora.com'
 
   const staticRoutes: MetadataRoute.Sitemap = [
     {
@@ -28,6 +28,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: 'weekly',
       priority: 0.9,
+    },
+    {
+      url: `${siteUrl}/gallery`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    },
+    {
+      url: `${siteUrl}/articles`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.85,
     },
     {
       url: `${siteUrl}/about`,

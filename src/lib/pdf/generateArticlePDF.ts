@@ -26,7 +26,7 @@ export function generateAndDownloadArticlePDF(article: ArticleJSON) {
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(8)
     doc.setTextColor(180, 83, 9) // Amber-700
-    doc.text('SOUL OF NEPAL • OFFLINE FIELD GUIDE', margin, 12)
+    doc.text('NEPALORA • OFFLINE FIELD GUIDE', margin, 12)
 
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(150, 150, 150)
@@ -218,11 +218,11 @@ export function generateAndDownloadArticlePDF(article: ArticleJSON) {
     doc.setLineWidth(0.3)
     doc.line(margin, pageHeight - 12, pageWidth - margin, pageHeight - 12)
 
-    doc.text('Soul of Nepal • Independent Guides for Travelers & Trekkers • https://soulofnepal.com', margin, pageHeight - 7)
+    doc.text('Nepalora • Independent Guides for Travelers & Trekkers • https://nepalora.com', margin, pageHeight - 7)
     doc.text(`Page ${i} of ${totalPages}`, pageWidth - margin, pageHeight - 7, { align: 'right' })
   }
 
   // --- 4. DIRECT DOWNLOAD AS REAL .PDF FILE ---
-  const fileName = `${article.slug || 'soul-of-nepal-guide'}.pdf`
+  const fileName = `${article.slug || 'nepalora-field-guide'}.pdf`
   doc.save(fileName)
 }

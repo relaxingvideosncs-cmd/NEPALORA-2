@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     const altText = (formData.get('alt_text') as string) || ''
     const title = (formData.get('title') as string) || ''
     const caption = (formData.get('caption') as string) || ''
-    const credit = (formData.get('credit') as string) || 'Soul of Nepal'
+    const credit = (formData.get('credit') as string) || 'Nepalora'
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
@@ -84,6 +84,44 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const supabase = await createClient()
+
+    // Check Content-Type to decide: bulk (JSON body) vs single (query param)
+    const contentType = req.headers.get('content-type') || ''
+    if (contentType.includes('application/json')) {
+      // ── Bulk delete ──────────────────────────────────────────────────────
+      const body = await req.json()
+      const ids: string[] = body?.ids || []
+
+      if (!ids.length) {
+        return NextResponse.json({ error: 'No IDs provided.' }, { status: 400 })
+      }
+
+      // Fetch all public IDs from DB
+      const { data: rows } = await supabase
+        .from('media')
+        .select('id, cloudinary_public_id, secure_url')
+        .in('id', ids)
+
+      // Delete from Supabase first
+      await supabase.from('media').delete().in('id', ids)
+
+      // Then delete from Cloudinary (best-effort, don't block on failure)
+      if (rows && rows.length > 0) {
+        await Promise.allSettled(
+          rows.map((row) => {
+            const pid = row.cloudinary_public_id || row.secure_url
+            if (pid) return deleteFromCloudinary(pid)
+          })
+        )
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Deleted ${ids.length} image(s) from database and Cloudinary.`,
+      })
+    }
+
+    // ── Single delete (legacy query param) ──────────────────────────────
     const { searchParams } = new URL(req.url)
     const id = searchParams.get('id')
     const publicId = searchParams.get('public_id')

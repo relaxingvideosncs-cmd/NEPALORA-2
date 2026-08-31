@@ -303,23 +303,23 @@ export default function ManageBulletinsClientPage() {
           </div>
 
           {/* Desktop Table */}
-          <div className="hidden sm:block border border-hairline rounded-2xl bg-bg-elevated overflow-hidden shadow-xs">
+          <div className="hidden sm:block border border-hairline rounded-2xl bg-bg-elevated overflow-hidden shadow-2xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-bg border-b border-hairline text-ink-tertiary uppercase tracking-wider font-semibold">
+                <thead className="bg-bg/80 border-b border-hairline text-ink-tertiary uppercase tracking-wider font-semibold text-[11px]">
                   <tr>
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3">Title & Notice</th>
-                    <th className="px-4 py-3">Connected Link</th>
-                    <th className="px-4 py-3">Schedule</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
+                    <th className="px-5 py-3.5">Type</th>
+                    <th className="px-5 py-3.5">Title & Notice</th>
+                    <th className="px-5 py-3.5">Connected Link</th>
+                    <th className="px-5 py-3.5">Schedule</th>
+                    <th className="px-5 py-3.5">Status</th>
+                    <th className="px-5 py-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-hairline text-ink">
                   {bulletins.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-10 text-center text-ink-tertiary space-y-2">
+                      <td colSpan={6} className="px-5 py-12 text-center text-ink-tertiary space-y-2">
                         <Bell className="w-6 h-6 mx-auto text-ink-tertiary" />
                         <p className="font-semibold text-ink">No bulletins registered yet.</p>
                       </td>
@@ -332,8 +332,8 @@ export default function ManageBulletinsClientPage() {
                       const isTopWarning = idx === 0 && isLive
 
                       return (
-                        <tr key={b.id} className="hover:bg-bg/60 transition-colors">
-                          <td className="px-4 py-3">
+                        <tr key={b.id} className="hover:bg-bg/50 transition-colors">
+                          <td className="px-5 py-4">
                             {isTopWarning ? (
                               <Badge tone="red">
                                 <Sparkles className="w-2.5 h-2.5 mr-1" /> Top Banner
@@ -343,12 +343,12 @@ export default function ManageBulletinsClientPage() {
                             )}
                           </td>
 
-                          <td className="px-4 py-3">
+                          <td className="px-5 py-4">
                             <strong className="font-semibold text-ink block">{b.title}</strong>
                             <p className="text-[11px] text-ink-secondary line-clamp-1 max-w-sm">{b.notice}</p>
                           </td>
 
-                          <td className="px-4 py-3">
+                          <td className="px-5 py-4">
                             {b.article ? (
                               <Link
                                 href={`/article/${b.article.slug}`}
@@ -372,7 +372,7 @@ export default function ManageBulletinsClientPage() {
                             )}
                           </td>
 
-                          <td className="px-4 py-3 text-ink-secondary text-[11px]">
+                          <td className="px-5 py-4 text-ink-secondary text-[11px]">
                             <div className="flex items-center gap-1">
                               <Calendar className="w-3 h-3 text-ink-tertiary" />
                               <span>{start.toLocaleDateString()}</span>
@@ -383,7 +383,7 @@ export default function ManageBulletinsClientPage() {
                             </div>
                           </td>
 
-                          <td className="px-4 py-3">
+                          <td className="px-5 py-4">
                             <button
                               type="button"
                               onClick={() => handleToggleActive(b.id, b.is_active)}
@@ -399,11 +399,11 @@ export default function ManageBulletinsClientPage() {
                             </button>
                           </td>
 
-                          <td className="px-4 py-3 text-right">
+                          <td className="px-5 py-4 text-right">
                             <button
                               type="button"
                               onClick={() => handleDeleteBulletin(b.id, b.title)}
-                              className="p-1 text-ink-tertiary hover:text-accent-red"
+                              className="p-1.5 rounded-lg border border-accent-red/20 text-accent-red hover:bg-accent-red/10 transition-colors cursor-pointer"
                               title="Delete Bulletin"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -526,6 +526,47 @@ export default function ManageBulletinsClientPage() {
                     className="w-full p-2.5 min-h-[44px] border border-hairline rounded-xl text-ink bg-bg"
                   />
                 </div>
+              </div>
+
+              {/* Priority Ranking Slider */}
+              <div className="border border-hairline rounded-xl p-4 bg-bg space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block font-semibold text-ink text-xs">
+                    Priority Rank
+                  </label>
+                  <span className={`text-xs font-bold px-2.5 py-0.5 rounded-pill ${
+                    priority === 1
+                      ? 'bg-accent-red/10 text-accent-red border border-accent-red/30'
+                      : priority <= 3
+                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                      : 'bg-bg-elevated border border-hairline text-ink-secondary'
+                  }`}>
+                    {priority === 1 ? '⚡ Top Banner (Slot #1)' : `Noticeboard Slot #${priority}`}
+                  </span>
+                </div>
+
+                <input
+                  type="range"
+                  min={1}
+                  max={15}
+                  step={1}
+                  value={priority}
+                  onChange={(e) => setPriority(Number(e.target.value))}
+                  className="w-full h-2 rounded-full cursor-pointer accent-accent-blue"
+                  style={{ accentColor: priority === 1 ? 'var(--accent-red)' : 'var(--accent-blue)' }}
+                />
+
+                <div className="flex justify-between text-[10px] text-ink-tertiary font-mono">
+                  <span className="text-accent-red font-semibold">1 — Top Banner</span>
+                  <span>15 — Last</span>
+                </div>
+
+                {occupiedSlots[priority] && (
+                  <p className="text-[11px] text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                    Slot #{priority} is occupied by &ldquo;{occupiedSlots[priority]}&rdquo;. It will be overridden when you create this bulletin.
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center gap-2 pt-2">

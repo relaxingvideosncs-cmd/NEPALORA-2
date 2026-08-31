@@ -14,16 +14,16 @@ import { getSiteSettings } from '@/lib/settings/service'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://soulofnepal.com'
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://nepalora.com'
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings()
 
-  const brandName = settings?.brand_name || 'Soul of Nepal'
-  const title = settings?.seo_title || `${brandName} — Travel, Himalayan Trekking & Wellness Platform`
+  const brandName = settings?.brand_name || 'Nepalora'
+  const title = settings?.seo_title || `${brandName} — Nepal Travel, Trekking & Wellness Guides`
   const description =
     settings?.seo_description ||
-    'Comprehensive independent Nepal travel guides, Himalayan trekking routes, visa checklists, and post-trek holistic wellness sanctuaries.'
+    'Nepalora is your complete guide to Nepal — expert trekking routes, Himalayan adventure preparation, visa tips, and post-trek wellness. Trusted, independent, and constantly updated.'
   const keywords = settings?.seo_keywords && settings.seo_keywords.length > 0
     ? settings.seo_keywords
     : [
@@ -114,7 +114,7 @@ export default async function RootLayout({
   const websiteSchema = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
-    name: settings?.brand_name || 'Soul of Nepal',
+    name: settings?.brand_name || 'Nepalora',
     url: siteUrl,
     potentialAction: {
       '@type': 'SearchAction',

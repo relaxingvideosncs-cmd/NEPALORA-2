@@ -20,7 +20,7 @@ import { Badge } from '@/components/ui/Badge'
 
 export async function generateMetadata() {
   const settings = await getSiteSettings()
-  const brandName = settings?.brand_name || 'Soul of Nepal'
+  const brandName = settings?.brand_name || 'Nepalora'
 
   return {
     title: `About ${brandName}`,
@@ -33,7 +33,7 @@ export async function generateMetadata() {
 export default async function AboutPage() {
   const settings = await getSiteSettings()
 
-  const brandName = settings?.brand_name || 'Soul of Nepal'
+  const brandName = settings?.brand_name || 'Nepalora'
   const tagline = settings?.tagline || 'Himalayan Travel, Trekking & Mindful Recovery'
   const description =
     settings?.description ||

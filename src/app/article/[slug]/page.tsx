@@ -16,13 +16,13 @@ const fallbackArticle: ArticleJSON = {
   slug: 'best-time-to-trek-in-nepal',
   category: 'trekking-adventure',
   excerpt: 'A practical guide to choosing the best trekking season in the Himalayas between autumn skies and spring blooms.',
-  author: 'Soul of Nepal Editorial',
+  author: 'Nepalora Editorial',
   tags: ['trekking', 'nepal', 'himalayas', 'seasons'],
   featured_image: {
     src: '/images/nepal/himalayan-sunrise-viewpoint-gold.webp',
     alt: 'Dawn breaking over the Himalayan mountain ridges',
     caption: 'Dawn breaking over the Himalayan mountain horizons as trekkers watch the sunrise.',
-    credit: 'Soul of Nepal Photography',
+    credit: 'Nepalora Photography',
   },
   blocks: [
     {
@@ -43,7 +43,7 @@ const fallbackArticle: ArticleJSON = {
       src: '/images/nepal/himalayan-village-greenery-lodge.webp',
       alt: 'Lush green terraced valleys in the Himalayan foothills',
       caption: 'Lush greenery and rustic teahouse lodges in the lower valleys during spring bloom.',
-      credit: 'Soul of Nepal Photography',
+      credit: 'Nepalora Photography',
     },
     {
       type: 'list',
@@ -68,7 +68,7 @@ const fallbackArticle: ArticleJSON = {
       src: '/images/nepal/mountain-peak-crest.webp',
       alt: 'Sharp mountain summit crest with pristine snow lines',
       caption: 'Pristine, untouched summit ridges under crisp crystal-blue October skies.',
-      credit: 'Soul of Nepal Photography',
+      credit: 'Nepalora Photography',
     },
     {
       type: 'quote',
@@ -147,11 +147,11 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     },
     author: {
       '@type': 'Person',
-      name: article.author || 'Soul of Nepal Editorial',
+      name: article.author || 'Nepalora Editorial',
     },
     publisher: {
       '@type': 'Organization',
-      name: 'Soul of Nepal',
+      name: 'Nepalora',
       logo: {
         '@type': 'ImageObject',
         url: `${siteUrl}/favicon.ico`,
