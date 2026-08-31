@@ -237,10 +237,9 @@ function PublicHeader({ isMaintenance = false, settings }: HeaderProps) {
                         onClick={() => setMobileMenuOpen(false)}
                         className={`
                           block px-4 py-3 rounded-xl text-base font-semibold transition-all min-h-[48px] flex items-center
-                          ${
-                            isActive
-                              ? 'bg-ink text-bg shadow-sm'
-                              : 'text-ink-secondary hover:text-ink hover:bg-bg'
+                          ${isActive
+                            ? 'bg-ink text-bg shadow-sm'
+                            : 'text-ink-secondary hover:text-ink hover:bg-bg'
                           }
                         `}
                       >
@@ -284,6 +283,25 @@ function PublicHeader({ isMaintenance = false, settings }: HeaderProps) {
 
 export function Header({ isMaintenance = false, settings }: HeaderProps) {
   const pathname = usePathname()
+
+  if (pathname === '/staff/login') {
+    return (
+      <header className="sticky top-0 z-[100] bg-bg/80 backdrop-blur-xl border-b border-hairline px-4 sm:px-8 py-3 flex items-center justify-between">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-xs font-semibold text-ink-secondary hover:text-ink transition-colors min-h-[40px] px-3 py-1.5 rounded-pill hover:bg-bg-elevated border border-hairline/60 shadow-2xs cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4 text-accent-blue" />
+          <span>Back to Website</span>
+        </Link>
+
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+        </div>
+      </header>
+    )
+  }
+
   const isStaffRoute = pathname?.startsWith('/staff')
 
   if (isStaffRoute) {

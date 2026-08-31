@@ -21,6 +21,11 @@ interface FooterProps {
 
 export function Footer({ isMaintenance = false, settings }: FooterProps) {
   const pathname = usePathname()
+
+  if (pathname === '/staff/login') {
+    return null
+  }
+
   const isStaffRoute = pathname?.startsWith('/staff')
   const showPublicLinks = !isMaintenance || isStaffRoute
 

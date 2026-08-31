@@ -39,6 +39,8 @@ const VALID_SETTINGS_COLUMNS = new Set([
   'is_active',
 ])
 
+import { sanitizeSettings } from '@/lib/settings/service'
+
 export async function GET() {
   try {
     const supabase = await createClient()
@@ -53,7 +55,7 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ settings: data || null })
+    return NextResponse.json({ settings: sanitizeSettings(data) })
   } catch (err: any) {
     console.error('GET /api/settings exception:', err)
     return NextResponse.json({ error: err.message || 'Failed to fetch settings' }, { status: 500 })

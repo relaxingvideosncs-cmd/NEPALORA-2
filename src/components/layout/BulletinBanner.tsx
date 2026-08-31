@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { AlertTriangle, X, ArrowRight } from 'lucide-react'
 import { BulletinRecord } from '@/types/database'
 import { Badge } from '@/components/ui/Badge'
@@ -11,13 +12,14 @@ interface BulletinBannerProps {
 }
 
 export function BulletinBanner({ bulletins }: BulletinBannerProps) {
+  const pathname = usePathname()
   const [dismissedIds, setDismissedIds] = useState<string[]>([])
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
     try {
-      const saved = localStorage.getItem('soulofnepal_dismissed_bulletins')
+      const saved = localStorage.getItem('nepalora_dismissed_bulletins')
       if (saved) {
         setDismissedIds(JSON.parse(saved))
       }
@@ -26,7 +28,7 @@ export function BulletinBanner({ bulletins }: BulletinBannerProps) {
     }
   }, [])
 
-  if (!mounted || !bulletins || bulletins.length === 0) {
+  if (!mounted || !bulletins || bulletins.length === 0 || pathname?.startsWith('/staff')) {
     return null
   }
 
