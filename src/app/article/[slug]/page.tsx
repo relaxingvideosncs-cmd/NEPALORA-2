@@ -78,7 +78,8 @@ const fallbackArticle: ArticleJSON = {
   ],
 }
 
-export const revalidate = 3600
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 interface ArticlePageProps {
   params: Promise<{ slug: string }>

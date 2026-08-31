@@ -11,7 +11,8 @@ import { ScrollToTop } from '@/components/layout/ScrollToTop'
 import { getActiveBulletins } from '@/lib/bulletin/service'
 import { getSiteSettings } from '@/lib/settings/service'
 
-export const revalidate = 3600
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://nepalora.com'
 

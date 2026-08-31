@@ -12,7 +12,8 @@ export const metadata = {
   description: 'Essential information, visas, packing, safety, and cultural etiquette for travelers visiting Nepal.',
 }
 
-export const revalidate = 3600
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export default async function PrepareForNepalPage() {
   const categorySlug = 'prepare-for-nepal'

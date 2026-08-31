@@ -12,7 +12,8 @@ import { getActiveBulletins } from '@/lib/bulletin/service'
 import { getGalleryPhotos } from '@/lib/gallery/service'
 import { Badge } from '@/components/ui/Badge'
 
-export const revalidate = 3600
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export default async function HomePage() {
   const supabase = createPublicClient()

@@ -12,7 +12,8 @@ export const metadata = {
   description: 'Himalayan trekking routes, permits, difficulty levels, and mountain safety.',
 }
 
-export const revalidate = 3600
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export default async function TrekkingAdventurePage() {
   const categorySlug = 'trekking-adventure'
