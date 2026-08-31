@@ -1,26 +1,311 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ============================================================
+   NEPALORA — DESIGN SYSTEM
+   Apple-restraint x NYT-editorial with Extreme Mobile-First ergonomics.
+   Pure B&W base with Nepal Red & Blue signature accent pair.
+   ============================================================ */
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* ---- Surfaces ---- */
+  --bg: #fafafa;
+  --bg-elevated: #ffffff;
+  --bg-overlay: rgba(255, 255, 255, 0.78);
+
+  /* ---- Ink (Typography) ---- */
+  --text: #111113;
+  --text-secondary: #6e6e76;
+  --text-tertiary: #9a9aa2;
+
+  /* ---- Hairlines & Borders ---- */
+  --hairline: rgba(0, 0, 0, 0.08);
+  --hairline-strong: rgba(0, 0, 0, 0.16);
+
+  /* ---- Signature Accent Pair (Nepal Logo Colors) ---- */
+  --accent-red: #e0383e;
+  --accent-blue: #2c5aa0;
+  --accent-gradient: linear-gradient(90deg, var(--accent-red), var(--accent-blue));
+
+  /* ---- Radii ---- */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  /* ---- Apple-Restrained Soft Shadows ---- */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.10);
+
+  /* ---- Glassmorphism Overlay ---- */
+  --glass-bg: rgba(255, 255, 255, 0.75);
+  --glass-border: rgba(0, 0, 0, 0.06);
+  --glass-blur: 16px;
+
+  /* ---- Motion & Easing ---- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 150ms;
+  --dur-base: 280ms;
+  --dur-slow: 500ms;
+
+  /* ---- Typography Hooks (SF Pro Display & SF Pro Text) ---- */
+  --font-display: var(--font-sf-pro-display), var(--font-sf-ui-display), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-body: var(--font-sf-pro), var(--font-sf-ui-text), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --font-handwriting: var(--font-handwriting), 'Caveat', cursive;
+}
+
+/* ---- Dark Mode Variables ---- */
+.dark {
+  --bg: #0a0a0a;
+  --bg-elevated: #141416;
+  --bg-overlay: rgba(20, 20, 22, 0.82);
+
+  --text: #f5f5f7;
+  --text-secondary: #9a9aa2;
+  --text-tertiary: #6e6e76;
+
+  --hairline: rgba(255, 255, 255, 0.10);
+  --hairline-strong: rgba(255, 255, 255, 0.18);
+
+  --accent-red: #ff5c61;
+  --accent-blue: #5b8fd9;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
+
+  --glass-bg: rgba(20, 20, 22, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.10);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-overlay: var(--bg-overlay);
+
+  --color-ink: var(--text);
+  --color-ink-secondary: var(--text-secondary);
+  --color-ink-tertiary: var(--text-tertiary);
+
+  --color-hairline: var(--hairline);
+  --color-hairline-strong: var(--hairline-strong);
+
+  --color-accent-red: var(--accent-red);
+  --color-accent-blue: var(--accent-blue);
+
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-mono);
+  --font-handwriting: var(--font-handwriting);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-pill: var(--radius-pill);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ============================================================
+   BASE & MOBILE TOUCH OPTIMIZATIONS
+   ============================================================ */
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  color-scheme: light dark;
+  scroll-behavior: smooth;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out);
+  overflow-x: hidden;
 }
+
+/* Touch-friendly defaults */
+button, a, input, select, textarea {
+  touch-action: manipulation;
+}
+
+h1, h2, h3, h4, h5, h6, .display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: var(--accent-blue);
+  color: #ffffff;
+}
+
+/* Keyboard focus visibility */
+:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================
+   SIGNATURE MOTIF: THE DRAWN UNDERLINE (.underline-draw)
+   ============================================================ */
+
+.underline-draw {
+  position: relative;
+  display: inline-block;
+}
+
+.underline-draw::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  width: 100%;
+  height: 2px;
+  background: var(--accent-gradient);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--dur-base) var(--ease-out);
+}
+
+.underline-draw:hover::after,
+.underline-draw:focus-visible::after,
+.group:hover .underline-draw::after {
+  transform: scaleX(1);
+}
+
+/* Hairline divider */
+.hr {
+  border: none;
+  border-top: 1px solid var(--hairline);
+  margin: 0;
+}
+
+/* ============================================================
+   GLASSMORPHISM
+   ============================================================ */
+
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.6);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.6);
+  border: 1px solid var(--glass-border);
+}
+
+/* ============================================================
+   ANIMATIONS & REVEAL
+   ============================================================ */
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position: 200% 0; }
+}
+
+.reveal {
+  opacity: 0;
+  animation: fade-up var(--dur-slow) var(--ease-out) forwards;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--hairline) 25%, var(--hairline-strong) 37%, var(--hairline) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* Custom scrollbars for mobile & modern browsers */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--hairline-strong);
+  border-radius: 999px;
+}
+
+/* Instagram Like Animations */
+.ig-big-heart {
+  filter: drop-shadow(0 4px 16px rgba(163, 0, 230, 0.5));
+  animation: igBigHeartRise 750ms cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
+.ig-particle {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  left: 50%;
+  top: 50%;
+  background: #ed4956;
+  pointer-events: none;
+  animation: igParticleFly 480ms ease-out forwards;
+}
+
+@keyframes igBigHeartRise {
+  0% { transform: scale(0) translateY(0); opacity: 0; }
+  22% { transform: scale(1.25) translateY(0); opacity: 1; }
+  40% { transform: scale(1) translateY(0); opacity: 1; }
+  65% { transform: scale(1.03) translateY(-14px); opacity: 1; }
+  100% { transform: scale(0.92) translateY(-46px); opacity: 0; }
+}
+
+@keyframes igBtnHeartPop {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.3); }
+  75% { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+
+@keyframes igParticleFly {
+  0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px))) scale(0); opacity: 0; }
+}
+

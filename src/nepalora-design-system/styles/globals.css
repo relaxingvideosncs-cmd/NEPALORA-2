@@ -1,0 +1,217 @@
+/* ============================================================
+   NEPALORA — DESIGN SYSTEM
+   Apple-restraint x NYT-editorial. Mostly black & white,
+   with red/blue used ONLY as a paired signature accent
+   (never as two separate "brand colors" fighting each other).
+   ============================================================ */
+
+:root {
+  /* ---- Surfaces ---- */
+  --bg: #fafafa;
+  --bg-elevated: #ffffff;
+  --bg-overlay: rgba(255, 255, 255, 0.72);
+
+  /* ---- Ink ---- */
+  --text: #111113;
+  --text-secondary: #6e6e76;
+  --text-tertiary: #9a9aa2;
+
+  /* ---- Lines & separation (the NYT hairline) ---- */
+  --hairline: rgba(0, 0, 0, 0.09);
+  --hairline-strong: rgba(0, 0, 0, 0.16);
+
+  /* ---- Signature accent pair (logo colors, used sparingly) ---- */
+  --accent-red: #e0383e;
+  --accent-blue: #2c5aa0;
+  --accent-gradient: linear-gradient(90deg, var(--accent-red), var(--accent-blue));
+
+  /* ---- Radius ---- */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  /* ---- Shadow (kept extremely soft — Apple, not Material) ---- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.10);
+
+  /* ---- Glass ---- */
+  --glass-bg: rgba(255, 255, 255, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-blur: 16px;
+
+  /* ---- Motion ---- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 150ms;
+  --dur-base: 280ms;
+  --dur-slow: 500ms;
+
+  /* ---- Type hooks (you already have fonts — wire them here once) ---- */
+  --font-display: var(--font-serif, Georgia, "Times New Roman", serif);
+  --font-body: var(--font-sans, -apple-system, "Inter", sans-serif);
+  --font-mono: var(--font-mono, "SF Mono", ui-monospace, monospace);
+}
+
+/* ---- Dark mode: class strategy (toggle .dark on <html>) ---- */
+.dark {
+  --bg: #0a0a0a;
+  --bg-elevated: #141416;
+  --bg-overlay: rgba(20, 20, 22, 0.72);
+
+  --text: #f5f5f7;
+  --text-secondary: #9a9aa2;
+  --text-tertiary: #6e6e76;
+
+  --hairline: rgba(255, 255, 255, 0.1);
+  --hairline-strong: rgba(255, 255, 255, 0.18);
+
+  --accent-red: #ff5c61;
+  --accent-blue: #5b8fd9;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
+
+  --glass-bg: rgba(20, 20, 22, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.08);
+}
+
+/* ============================================================
+   BASE
+   ============================================================ */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  transition: background var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out);
+}
+
+h1, h2, h3, .display {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: var(--accent-blue);
+  color: white;
+}
+
+/* Respect reduced motion, always */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Visible keyboard focus everywhere — non-negotiable */
+:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ============================================================
+   SIGNATURE MOTIF — the drawn underline
+   Used on headlines, nav links, "read more" — ties the whole
+   site together. Red-to-blue gradient rule that draws itself.
+   ============================================================ */
+
+.underline-draw {
+  position: relative;
+  display: inline-block;
+}
+
+.underline-draw::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  width: 100%;
+  height: 2px;
+  background: var(--accent-gradient);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--dur-base) var(--ease-out);
+}
+
+.underline-draw:hover::after,
+.underline-draw:focus-visible::after {
+  transform: scaleX(1);
+}
+
+/* Hairline divider */
+.hr {
+  border: none;
+  border-top: 1px solid var(--hairline);
+}
+
+/* ============================================================
+   GLASSMORPHISM — used ONLY on fixed/overlay surfaces
+   (nav bar, modals, command palette). Never on body content.
+   No JS, no dependency — pure CSS backdrop-filter.
+   ============================================================ */
+
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.6);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.6);
+  border: 1px solid var(--glass-border);
+}
+
+/* ============================================================
+   KEYFRAMES
+   ============================================================ */
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position: 200% 0; }
+}
+
+/* Utility animation classes — pair with the useScrollReveal hook */
+.reveal {
+  opacity: 0;
+  animation: fade-up var(--dur-slow) var(--ease-out) forwards;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--hairline) 25%, var(--hairline-strong) 37%, var(--hairline) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
