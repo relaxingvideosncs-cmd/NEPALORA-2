@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
-import { Search, Menu, X, ArrowUpRight } from 'lucide-react'
+import { Search, Menu, X, ArrowUpRight, ArrowLeft } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { SiteSettingsRecord } from '@/types/database'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
