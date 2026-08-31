@@ -47,6 +47,7 @@ export function ArticleCard({ article, featured = false }: ArticleCardProps) {
           <ProgressiveImage
             src={cardImage}
             alt={article.title || 'Article cover'}
+            profile={featured ? 'card' : 'thumb'}
             containerClassName="w-full h-full"
             className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
             loading="lazy"

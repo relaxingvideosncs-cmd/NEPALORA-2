@@ -78,6 +78,8 @@ const fallbackArticle: ArticleJSON = {
   ],
 }
 
+export const revalidate = 3600
+
 interface ArticlePageProps {
   params: Promise<{ slug: string }>
 }
@@ -86,7 +88,7 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
   const { slug } = await params
   const record = await getArticleBySlug(slug)
   const article = record?.content_json || (slug === fallbackArticle.slug ? fallbackArticle : null)
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://soulofnepal.com'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://nepalora.com'
 
   if (!article) {
     return { title: 'Article Not Found' }
@@ -130,7 +132,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     getSimilarArticles(article.category, slug, 3),
   ])
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://soulofnepal.com'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://nepalora.com'
   const coverImage = getArticleFeaturedImage(article)
 
   // Technical SEO Schema

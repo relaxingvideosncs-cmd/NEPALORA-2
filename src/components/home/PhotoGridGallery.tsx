@@ -10,8 +10,6 @@ import { ImageViewerModal } from '@/components/common/ImageViewerModal'
 import { getStoredLikedIds, isPhotoLikedLocally } from '@/lib/gallery/likeHelper'
 import {
   Sparkles,
-  Heart,
-  MapPin,
   Images,
   ArrowRight,
 } from 'lucide-react'
@@ -117,62 +115,48 @@ export function PhotoGridGallery({
         </Link>
       </div>
 
-      {/* 2x3 Photo Grid Gallery */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 sm:gap-4.5 w-full">
+      {/* 2x3 Photo Grid Gallery matching exact template */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-[14px] w-full">
         {gridPhotos.map((photo, index) => {
-          const photoLike =
-            mounted && likesMap[photo.id]
-              ? likesMap[photo.id]
-              : {
-                  liked: false,
-                  count: Number(photo.like_count) || 0,
-                }
-
+          const descText = photo.caption || photo.title
           return (
             <div
               key={photo.id}
               onClick={() => setActivePhotoIndex(index)}
-              className="
-                group relative aspect-square rounded-2xl overflow-hidden
-                cursor-pointer bg-neutral-200 dark:bg-neutral-800
-                border border-hairline shadow-2xs hover:shadow-lg
-                transition-all duration-300 select-none
-              "
+              className="group relative aspect-square rounded-[10px] overflow-hidden cursor-pointer bg-[#ddd] dark:bg-[#222] select-none"
               title="Click to view full photograph"
             >
+              {/* Full Bleed Image with 0.6s cubic-bezier zoom */}
               <ProgressiveImage
                 src={photo.src}
                 alt={photo.alt}
+                profile="thumb"
                 containerClassName="w-full h-full"
-                className="w-full h-full object-cover block transition-transform duration-500 group-hover:scale-104"
+                className="w-full h-full object-cover block transition-transform duration-[600ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.06]"
                 loading="lazy"
               />
 
-              {/* Persistent Like Badge on Tile */}
-              {photoLike.count > 0 && (
-                <div className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-pill text-[11px] font-bold bg-black/65 text-white backdrop-blur-xs z-10 flex items-center gap-1">
-                  <Heart className={`w-3 h-3 ${photoLike.liked ? 'text-rose-500 fill-rose-500' : 'text-white'}`} />
-                  <span>{photoLike.count}</span>
-                </div>
-              )}
-
-              {/* Overlay: Natural subtle gradient */}
+              {/* Overlay: Hidden by default, fades + slides up on hover */}
               <div
                 className="
-                  absolute inset-0 flex flex-col justify-end p-3.5 sm:p-4.5
-                  bg-gradient-to-t from-black/80 via-black/20 to-transparent
-                  opacity-0 group-hover:opacity-100 transition-opacity duration-300
+                  absolute inset-0 flex flex-col justify-end p-4
+                  opacity-0 group-hover:opacity-100 transition-opacity duration-350
                   pointer-events-none z-10
                 "
+                style={{
+                  background: 'linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(0,0,0,0.75) 100%)',
+                }}
               >
-                {photo.title && (
-                  <p className="text-white text-xs sm:text-sm font-semibold mb-1 leading-snug drop-shadow-sm truncate">
-                    {photo.title}
+                {descText && (
+                  <p className="text-white text-[14px] font-[500] m-0 mb-[6px] translate-y-[6px] opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-350 delay-[50ms] line-clamp-1 leading-snug drop-shadow-sm">
+                    {descText}
                   </p>
                 )}
                 {photo.location && (
-                  <div className="flex items-center gap-1 text-white/90 text-[11px] sm:text-xs font-medium">
-                    <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-accent-red" />
+                  <div className="flex items-center gap-[5px] text-white/85 text-[12px] translate-y-[6px] opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-350 delay-[100ms]">
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-[12px] h-[12px] flex-shrink-0 text-white/85">
+                      <path d="M12 2C7.6 2 4 5.6 4 10c0 5.4 7 12 8 12s8-6.6 8-12c0-4.4-3.6-8-8-8zm0 11a3 3 0 110-6 3 3 0 010 6z" />
+                    </svg>
                     <span className="truncate">{photo.location}</span>
                   </div>
                 )}

@@ -2,6 +2,7 @@ import React from 'react'
 import { NEPAL_PHOTOS, NepalPhoto } from '@/lib/data/nepalImages'
 import { Camera, MapPin, Sparkles } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
+import { getWebImageUrl } from '@/lib/cloudinary/imageHelper'
 
 export function NepalPhotoGallery() {
   const featuredPhotos = NEPAL_PHOTOS.filter((p) => p.featured).slice(0, 8)
@@ -35,7 +36,7 @@ export function NepalPhotoGallery() {
             <div className="aspect-[4/3] bg-hairline relative overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={photo.src}
+                src={getWebImageUrl(photo.src, 'thumb')}
                 alt={photo.alt}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
                 loading="lazy"

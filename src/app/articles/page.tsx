@@ -6,8 +6,7 @@ import { getAllPublishedArticles } from '@/lib/article/service'
 import { AllArticlesBrowser } from '@/components/article/AllArticlesBrowser'
 import { BookOpen } from 'lucide-react'
 
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
+export const revalidate = 3600
 
 export const metadata: Metadata = {
   title: 'All Articles & Field Guides | Nepalora',

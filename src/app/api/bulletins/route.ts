@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 
 export async function GET() {
@@ -72,6 +73,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    try {
+      revalidatePath('/', 'layout')
+      revalidatePath('/')
+    } catch (e) {
+      console.warn('Bulletin revalidation notice:', e)
+    }
+
     return NextResponse.json({
       success: true,
       bulletin: data,
@@ -103,6 +111,13 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    try {
+      revalidatePath('/', 'layout')
+      revalidatePath('/')
+    } catch (e) {
+      console.warn('Bulletin revalidation notice:', e)
+    }
+
     return NextResponse.json({ success: true })
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Failed to update bulletin' }, { status: 500 })
@@ -123,6 +138,13 @@ export async function DELETE(req: NextRequest) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    try {
+      revalidatePath('/', 'layout')
+      revalidatePath('/')
+    } catch (e) {
+      console.warn('Bulletin revalidation notice:', e)
     }
 
     return NextResponse.json({ success: true })

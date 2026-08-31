@@ -2,7 +2,7 @@ import React from 'react'
 import Link from 'next/link'
 import { Compass, Mountain, HeartHandshake, BookOpen, ArrowRight } from 'lucide-react'
 import { AdSlot } from '@/components/ads/AdSlot'
-import { createClient } from '@/lib/supabase/server'
+import { createPublicClient } from '@/lib/supabase/server'
 import { NoticeBoard } from '@/components/home/NoticeBoard'
 import { ArticleCard } from '@/components/article/ArticleCard'
 import { HeroSlideshow } from '@/components/home/HeroSlideshow'
@@ -12,11 +12,10 @@ import { getActiveBulletins } from '@/lib/bulletin/service'
 import { getGalleryPhotos } from '@/lib/gallery/service'
 import { Badge } from '@/components/ui/Badge'
 
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
+export const revalidate = 3600
 
 export default async function HomePage() {
-  const supabase = await createClient()
+  const supabase = createPublicClient()
 
   const [articlesRes, bulletins, heroSlides, homeGridPhotos] = await Promise.all([
     supabase

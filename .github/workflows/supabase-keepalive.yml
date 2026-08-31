@@ -1,0 +1,25 @@
+name: Supabase Keepalive Ping
+
+on:
+  schedule:
+    # Runs every 2 days at 06:00 UTC to ensure Supabase never pauses
+    - cron: '0 6 */2 * *'
+  workflow_dispatch:
+
+jobs:
+  keepalive:
+    name: Ping Supabase Database
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Keepalive Request to Production Site
+        run: |
+          PROD_URL="${{ secrets.PRODUCTION_URL || 'https://nepalora.com' }}"
+          echo "Sending keepalive request to $PROD_URL/api/keepalive..."
+          HTTP_STATUS=$(curl -s -o response.json -w "%{http_code}" "$PROD_URL/api/keepalive" || echo "000")
+          echo "HTTP Status: $HTTP_STATUS"
+          cat response.json || true
+          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 400 ]; then
+            echo "Keepalive ping succeeded!"
+          else
+            echo "Warning: Response status was $HTTP_STATUS"
+          fi

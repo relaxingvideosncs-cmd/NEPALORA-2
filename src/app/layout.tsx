@@ -11,8 +11,7 @@ import { ScrollToTop } from '@/components/layout/ScrollToTop'
 import { getActiveBulletins } from '@/lib/bulletin/service'
 import { getSiteSettings } from '@/lib/settings/service'
 
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
+export const revalidate = 3600
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://nepalora.com'
 
@@ -155,9 +154,9 @@ export default async function RootLayout({
           <>
             <Script
               src={`https://www.googletagmanager.com/gtag/js?id=${settings.google_analytics_id}`}
-              strategy="afterInteractive"
+              strategy="lazyOnload"
             />
-            <Script id="google-analytics" strategy="afterInteractive">
+            <Script id="google-analytics" strategy="lazyOnload">
               {`
                 window.dataLayer = window.dataLayer || [];
                 function gtag(){dataLayer.push(arguments);}

@@ -126,6 +126,17 @@ export interface NewsletterSubscriberRecord {
   created_at: string
 }
 
+export interface GalleryCategoryRecord {
+  id: string
+  name: string
+  slug: string
+  description?: string | null
+  display_order: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
 export type GallerySlot =
   | 'hero'
   | 'home_grid'
@@ -138,6 +149,7 @@ export interface GalleryPhotoRecord {
   gallery_slot: GallerySlot
   image_url: string
   title: string
+  category?: string | null
   description?: string | null
   location?: string | null
   seo_alt?: string | null

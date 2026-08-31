@@ -24,7 +24,6 @@ import {
   Check,
 } from 'lucide-react'
 import { GalleryPhotoRecord, GallerySlot } from '@/types/database'
-import { compressImageClient } from '@/lib/cloudinary/clientCompress'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { ProgressiveImage } from '@/components/common/ProgressiveImage'
@@ -33,42 +32,36 @@ import { getWebImageUrl } from '@/lib/cloudinary/imageHelper'
 const FIVE_GALLERIES_CONFIG: {
   id: GallerySlot
   name: string
-  icon: string
   desc: string
   badgeTone: 'blue' | 'red' | 'neutral'
 }[] = [
   {
     id: 'hero',
     name: 'Hero Slideshow',
-    icon: '🌟',
     desc: 'Landing page full-screen edge-to-edge photography slideshow',
     badgeTone: 'blue',
   },
   {
     id: 'home_grid',
     name: 'Homepage Grid (2x3)',
-    icon: '📸',
     desc: 'Interactive 2x3 photo grid showcase on homepage',
     badgeTone: 'red',
   },
   {
     id: 'prepare_polaroid',
     name: 'Preparation Polaroid',
-    icon: '🏔️',
     desc: 'Preparation for Nepal infinite white Polaroid slider',
     badgeTone: 'blue',
   },
   {
     id: 'trekking_polaroid',
     name: 'Trekking Polaroid',
-    icon: '🧗',
     desc: 'Trekking & Adventure infinite white Polaroid slider',
     badgeTone: 'blue',
   },
   {
     id: 'recovery_polaroid',
     name: 'Recovery Polaroid',
-    icon: '🌿',
     desc: 'Recovery & Healing infinite white Polaroid slider',
     badgeTone: 'red',
   },
@@ -90,6 +83,17 @@ async function safeParseResponse(res: Response) {
 export default function StaffGalleryControllerPage() {
   const [activeSlot, setActiveSlot] = useState<GallerySlot>('hero')
   const [items, setItems] = useState<GalleryPhotoRecord[]>([])
+  const [categories, setCategories] = useState<string[]>([
+    'Mountains & Landscapes',
+    'Culture & Heritage',
+    'Food & Culinary',
+    'People & Daily Life',
+    'Monasteries & Sacred Sites',
+    'Festivals & Celebrations',
+    'Wildlife & Nature',
+    'Trekking & Adventure',
+  ])
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
@@ -98,6 +102,18 @@ export default function StaffGalleryControllerPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
+
+  // Fetch categories from API
+  useEffect(() => {
+    fetch('/api/gallery-categories')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.categories && Array.isArray(data.categories)) {
+          setCategories(data.categories.map((c: any) => c.name))
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   // Add / Edit Modal State
   const [modalOpen, setModalOpen] = useState(false)
@@ -135,16 +151,12 @@ export default function StaffGalleryControllerPage() {
 
     setUploadingImage(true)
     try {
-      const compressed = await compressImageClient(file, {
-        maxDimension: 2560,
-        quality: 0.92,
-      })
-
       const uploadForm = new FormData()
-      uploadForm.append('file', compressed)
+      uploadForm.append('file', file)
       uploadForm.append('title', editingItem?.title || file.name.replace(/\.[^/.]+$/, ''))
       uploadForm.append('caption', editingItem?.description || '')
       uploadForm.append('alt_text', editingItem?.seo_alt || editingItem?.title || '')
+      uploadForm.append('folder', 'nepalora/gallery')
 
       const res = await fetch('/api/upload', {
         method: 'POST',
@@ -411,7 +423,6 @@ export default function StaffGalleryControllerPage() {
               `}
             >
               <div className="flex items-center gap-1.5 font-bold text-xs">
-                <span>{slot.icon}</span>
                 <span className="truncate">{slot.name}</span>
               </div>
               <span className={`text-[10px] ${isActive ? 'text-accent-blue/70' : 'text-ink-tertiary'}`}>
@@ -426,7 +437,6 @@ export default function StaffGalleryControllerPage() {
       <div className="p-4 sm:p-5 rounded-2xl bg-bg-elevated border border-hairline flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-lg">{activeSlotConfig.icon}</span>
             <h2 className="font-display font-bold text-base text-ink">
               {activeSlotConfig.name}
             </h2>
@@ -521,28 +531,54 @@ export default function StaffGalleryControllerPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-          {items.map((item, index) => {
+          {/* Category Filter Pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+            <span className="text-xs font-semibold text-ink-tertiary flex items-center gap-1 flex-shrink-0 mr-1">
+              Category:
+            </span>
+            {['all', ...categories].map((cat) => {
+              const isSelected = selectedCategoryFilter === cat
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedCategoryFilter(cat)}
+                  className={`px-3 py-1 rounded-pill text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
+                    isSelected
+                      ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-950 border-transparent shadow-2xs font-bold'
+                      : 'bg-bg-elevated text-ink-secondary hover:text-ink border-hairline hover:border-hairline-strong'
+                  }`}
+                >
+                  {cat === 'all' ? 'All Categories' : cat}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+          {items
+            .filter((it) => selectedCategoryFilter === 'all' || (it.category || 'Mountains & Landscapes') === selectedCategoryFilter)
+            .map((item, index) => {
             const isSelected = selectedIds.has(item.id)
             return (
             <div
               key={item.id}
               className={`
-                rounded-2xl border bg-bg-elevated overflow-hidden flex flex-col justify-between shadow-2xs transition-all
-                ${isSelected ? 'border-accent-blue ring-2 ring-accent-blue/30' : item.is_active ? 'border-hairline' : 'border-hairline opacity-60 bg-bg'}
+                rounded-2xl border bg-bg-elevated overflow-hidden flex flex-col justify-between shadow-xs transition-all group
+                ${isSelected ? 'border-accent-blue ring-2 ring-accent-blue/30' : item.is_active ? 'border-hairline hover:border-hairline-strong' : 'border-hairline opacity-65 bg-bg'}
               `}
             >
-              {/* Photo Canvas Preview */}
+              {/* Photo Canvas Preview (Generous 4:3 Aspect Ratio for Large Clear Image Viewing) */}
               <div
-                className="relative aspect-[16/10] bg-neutral-200 dark:bg-neutral-800 overflow-hidden flex items-center justify-center cursor-pointer"
+                className="relative aspect-[4/3] bg-neutral-900/10 overflow-hidden flex items-center justify-center cursor-pointer"
                 onClick={() => toggleSelect(item.id)}
               >
                 {item.image_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={getWebImageUrl(item.image_url)}
+                    src={getWebImageUrl(item.image_url, 'card')}
                     alt={item.seo_alt || item.title}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     loading="lazy"
                   />
                 ) : (
@@ -551,77 +587,72 @@ export default function StaffGalleryControllerPage() {
 
                 {/* Checkbox overlay */}
                 <div className={`absolute top-2.5 left-2.5 z-20 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                  <div className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-colors ${
-                    isSelected ? 'bg-accent-blue border-accent-blue' : 'bg-white/80 border-white/60 backdrop-blur-sm'
+                  <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition-colors ${
+                    isSelected ? 'bg-accent-blue border-accent-blue text-white shadow-xs' : 'bg-black/60 border-white/40 text-transparent backdrop-blur-xs'
                   }`}>
-                    {isSelected && <Check className="w-3 h-3 text-white" />}
+                    {isSelected && <Check className="w-3.5 h-3.5 text-white" />}
                   </div>
                 </div>
 
                 {/* Index Pill */}
-                <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-black/75 text-white backdrop-blur-xs z-10">
+                <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-black/75 text-white backdrop-blur-xs z-10 font-mono">
                   #{index + 1}
                 </div>
 
                 {/* Like Count Pill */}
-                <div className="absolute bottom-2.5 left-2.5 px-2 py-0.5 rounded-pill text-[10px] font-bold bg-black/75 text-white backdrop-blur-xs z-10 flex items-center gap-1">
+                <div className="absolute bottom-2 left-2.5 px-2 py-0.5 rounded-pill text-[10px] font-bold bg-black/75 text-white backdrop-blur-xs z-10 flex items-center gap-1">
                   <Heart className="w-3 h-3 text-rose-500 fill-rose-500" />
                   <span>{item.like_count || 0}</span>
                 </div>
 
-                {/* Status Pill */}
-                <div className="absolute bottom-2.5 right-2.5 z-10">
-                  {item.is_active ? (
-                    <span className="px-2 py-0.5 rounded-pill text-[10px] font-bold bg-emerald-500/90 text-white shadow-xs">
-                      Live
-                    </span>
-                  ) : (
-                    <span className="px-2 py-0.5 rounded-pill text-[10px] font-bold bg-neutral-700/90 text-white shadow-xs">
-                      Inactive
-                    </span>
-                  )}
+                {/* Status Badge */}
+                <div className="absolute bottom-2 right-2.5 z-10">
+                  <span className={`px-2 py-0.5 rounded-pill text-[10px] font-bold text-white shadow-xs backdrop-blur-xs ${item.is_active ? 'bg-emerald-600/90' : 'bg-neutral-700/90'}`}>
+                    {item.is_active ? 'Live' : 'Inactive'}
+                  </span>
                 </div>
 
                 {/* Selected overlay tint */}
-                {isSelected && <div className="absolute inset-0 bg-accent-blue/10 pointer-events-none" />}
+                {isSelected && <div className="absolute inset-0 bg-accent-blue/15 pointer-events-none" />}
               </div>
 
-              {/* Photo Information */}
-              <div className="p-4 space-y-2.5 flex-1 flex flex-col justify-between">
-                <div className="space-y-1.5">
-                  <h3 className="font-display font-bold text-sm text-ink truncate">
+              {/* Photo Information & Controls */}
+              <div className="p-3 space-y-2 flex-1 flex flex-col justify-between text-xs">
+                <div>
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <span className="px-2 py-0.5 text-[10px] font-semibold bg-bg rounded-pill border border-hairline text-ink truncate max-w-[140px]">
+                      {item.category || 'Mountains & Landscapes'}
+                    </span>
+                    {item.location && (
+                      <div className="flex items-center gap-1 text-[10px] text-ink-tertiary truncate">
+                        <MapPin className="w-2.5 h-2.5 text-accent-red flex-shrink-0" />
+                        <span className="truncate">{item.location}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <h3 className="font-semibold text-xs text-ink truncate" title={item.title}>
                     {item.title}
                   </h3>
 
                   {item.description && (
-                    <p className="text-xs text-ink-secondary line-clamp-2 leading-relaxed">
+                    <p className="text-[11px] text-ink-secondary line-clamp-1 mt-0.5">
                       {item.description}
                     </p>
                   )}
-
-                  {item.location && (
-                    <div className="flex items-center gap-1.5 text-[11px] text-ink-tertiary">
-                      <MapPin className="w-3 h-3 text-accent-red flex-shrink-0" />
-                      <span className="truncate">{item.location}</span>
-                    </div>
-                  )}
-
-                  {item.seo_alt && (
-                    <div className="text-[10px] text-ink-tertiary truncate font-mono">
-                      Alt: {item.seo_alt}
-                    </div>
-                  )}
                 </div>
 
-                {/* Actions & Reordering Toolbar */}
-                <div className="pt-3 border-t border-hairline flex items-center justify-between gap-2">
+                {/* Actions Toolbar */}
+                <div className="pt-2 border-t border-hairline flex items-center justify-between gap-1">
+                  {/* Reorder Arrows */}
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
                       disabled={index === 0}
                       onClick={() => handleMoveOrder(index, 'up')}
-                      aria-label="Move photograph up in sequence"
-                      className="p-1.5 rounded-lg border border-hairline bg-bg hover:bg-bg-elevated disabled:opacity-30 transition-all cursor-pointer"
+                      aria-label="Move up"
+                      className="p-1.5 rounded-lg bg-bg hover:bg-bg-elevated border border-hairline disabled:opacity-20 transition-all cursor-pointer"
+                      title="Move up"
                     >
                       <ArrowUp className="w-3.5 h-3.5 text-ink" />
                     </button>
@@ -629,19 +660,21 @@ export default function StaffGalleryControllerPage() {
                       type="button"
                       disabled={index === items.length - 1}
                       onClick={() => handleMoveOrder(index, 'down')}
-                      aria-label="Move photograph down in sequence"
-                      className="p-1.5 rounded-lg border border-hairline bg-bg hover:bg-bg-elevated disabled:opacity-30 transition-all cursor-pointer"
+                      aria-label="Move down"
+                      className="p-1.5 rounded-lg bg-bg hover:bg-bg-elevated border border-hairline disabled:opacity-20 transition-all cursor-pointer"
+                      title="Move down"
                     >
                       <ArrowDown className="w-3.5 h-3.5 text-ink" />
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
+                  {/* Actions */}
+                  <div className="flex items-center gap-1">
                     <button
                       type="button"
                       onClick={() => handleToggleActive(item)}
-                      aria-label={item.is_active ? 'Deactivate photo' : 'Activate photo'}
-                      className="p-1.5 rounded-lg border border-hairline bg-bg hover:bg-bg-elevated text-ink transition-all cursor-pointer"
+                      aria-label={item.is_active ? 'Deactivate' : 'Activate'}
+                      className="p-1.5 rounded-lg bg-bg hover:bg-bg-elevated border border-hairline text-ink transition-all cursor-pointer"
                       title={item.is_active ? 'Click to deactivate' : 'Click to publish'}
                     >
                       {item.is_active ? (
@@ -657,8 +690,9 @@ export default function StaffGalleryControllerPage() {
                         setEditingItem(item)
                         setModalOpen(true)
                       }}
-                      aria-label="Edit photo details"
-                      className="p-1.5 rounded-lg border border-hairline bg-bg hover:bg-bg-elevated text-ink transition-all cursor-pointer"
+                      aria-label="Edit"
+                      className="p-1.5 rounded-lg bg-bg hover:bg-bg-elevated border border-hairline text-ink transition-all cursor-pointer"
+                      title="Edit photo details"
                     >
                       <Edit2 className="w-3.5 h-3.5 text-accent-blue" />
                     </button>
@@ -666,8 +700,9 @@ export default function StaffGalleryControllerPage() {
                     <button
                       type="button"
                       onClick={() => handleDeleteItem(item.id, item.title)}
-                      aria-label="Delete photo from DB and Cloudinary"
-                      className="p-1.5 rounded-lg border border-hairline bg-bg hover:bg-bg-elevated text-accent-red transition-all cursor-pointer"
+                      aria-label="Delete"
+                      className="p-1.5 rounded-lg bg-bg hover:bg-bg-elevated border border-hairline text-accent-red transition-all cursor-pointer"
+                      title="Delete photo"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -737,7 +772,6 @@ export default function StaffGalleryControllerPage() {
           <div className="relative max-w-lg w-full bg-bg-elevated border border-hairline rounded-2xl shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-hairline pb-3">
               <div className="flex items-center gap-2">
-                <span className="text-base">{activeSlotConfig.icon}</span>
                 <h3 className="font-display font-bold text-base text-ink">
                   {editingItem.id ? 'Edit Photograph' : `Add Photo to ${activeSlotConfig.name}`}
                 </h3>
@@ -822,6 +856,26 @@ export default function StaffGalleryControllerPage() {
                   required
                   className="w-full p-2.5 text-xs bg-bg border border-hairline rounded-xl text-ink"
                 />
+              </div>
+
+              {/* Photo Subject Category */}
+              <div>
+                <label className="block text-xs font-semibold text-ink mb-1">
+                  Photo Subject Category *
+                </label>
+                <select
+                  value={editingItem.category || 'Mountains & Landscapes'}
+                  onChange={(e) =>
+                    setEditingItem((prev) => ({ ...prev, category: e.target.value }))
+                  }
+                  className="w-full p-2.5 text-xs bg-bg border border-hairline rounded-xl text-ink cursor-pointer"
+                >
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Description / Caption / Handwritten text */}

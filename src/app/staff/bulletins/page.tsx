@@ -17,10 +17,10 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { BulletinRecord } from '@/types/database'
-import { compressImageClient } from '@/lib/cloudinary/clientCompress'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
+import { getWebImageUrl } from '@/lib/cloudinary/imageHelper'
 
 export default function ManageBulletinsClientPage() {
   const [bulletins, setBulletins] = useState<BulletinRecord[]>([])
@@ -34,8 +34,8 @@ export default function ManageBulletinsClientPage() {
   const [noticeText, setNoticeText] = useState('')
   const [pictureUrl, setPictureUrl] = useState('')
   const [linkUrl, setLinkUrl] = useState('')
-  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 16))
-  const [endDate, setEndDate] = useState(
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 16))
+  const [endDate, setEndDate] = useState(() =>
     new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16)
   )
   const [priority, setPriority] = useState<number>(15)
@@ -73,10 +73,10 @@ export default function ManageBulletinsClientPage() {
 
     setUploadingImage(true)
     try {
-      const compressed = await compressImageClient(file, { maxDimension: 1200 })
       const formData = new FormData()
-      formData.append('file', compressed)
+      formData.append('file', file)
       formData.append('title', `Bulletin - ${title || 'Notice'}`)
+      formData.append('folder', 'nepalora/events')
 
       const res = await fetch('/api/upload', {
         method: 'POST',
@@ -489,7 +489,7 @@ export default function ManageBulletinsClientPage() {
                   </label>
                   {pictureUrl && (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={pictureUrl} alt="" className="w-8 h-8 rounded object-cover border border-hairline" />
+                    <img src={getWebImageUrl(pictureUrl, 'thumb')} alt="" className="w-8 h-8 rounded object-cover border border-hairline" />
                   )}
                 </div>
               </div>

@@ -180,18 +180,21 @@ export function AllArticlesBrowser({ initialArticles = [] }: AllArticlesBrowserP
                   whitespace-nowrap transition-all cursor-pointer select-none min-h-[36px]
                   ${
                     isSelected
-                      ? 'bg-ink text-bg shadow-2xs'
-                      : 'bg-bg text-ink-secondary hover:text-ink border border-hairline hover:border-hairline-strong'
+                      ? 'bg-neutral-950 !text-white dark:bg-white dark:!text-neutral-950 shadow-2xs font-bold'
+                      : 'bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 hover:text-neutral-950 dark:hover:text-white border border-hairline dark:border-white/10 hover:border-hairline-strong'
                   }
                 `}
               >
                 <Icon className="w-3.5 h-3.5 flex-shrink-0" />
-                <span>{cat.label}</span>
+                <span className={isSelected ? '!text-white dark:!text-neutral-950 font-bold' : 'text-inherit'}>
+                  {cat.label}
+                </span>
                 <span
-                  className={`
-                    ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono
-                    ${isSelected ? 'bg-bg/20 text-bg' : 'bg-bg-elevated text-ink-tertiary border border-hairline'}
-                  `}
+                  className={`text-[10px] px-1.5 py-0.2 rounded-pill font-mono ${
+                    isSelected
+                      ? 'bg-white/20 dark:bg-black/20 !text-white dark:!text-neutral-950 font-bold'
+                      : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400'
+                  }`}
                 >
                   {count}
                 </span>

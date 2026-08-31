@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { saveArticle } from '@/lib/article/service'
 import { validateArticleJSON } from '@/lib/validation/articleSchema'
 import { safeParseArticleJSON } from '@/lib/validation/cleanJSON'
@@ -42,6 +43,7 @@ export async function GET(req: NextRequest) {
         title,
         slug,
         status,
+        created_at,
         updated_at,
         published_at,
         category:categories(name, slug)
@@ -53,6 +55,61 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ articles: data || [] })
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 })
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const supabase = await createClient()
+    const body = await req.json()
+    const { id, status } = body
+
+    if (!id || !status) {
+      return NextResponse.json({ error: 'Article ID and status are required' }, { status: 400 })
+    }
+
+    const updatePayload: Record<string, any> = {
+      status,
+      updated_at: new Date().toISOString(),
+    }
+
+    if (status === 'published') {
+      updatePayload.published_at = new Date().toISOString()
+    }
+
+    const { data, error } = await supabase
+      .from('articles')
+      .update(updatePayload)
+      .eq('id', id)
+      .select(`
+        id,
+        title,
+        slug,
+        status,
+        created_at,
+        updated_at,
+        published_at,
+        category:categories(name, slug)
+      `)
+      .single()
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    try {
+      revalidatePath('/')
+      revalidatePath('/articles')
+      if (data?.slug) {
+        revalidatePath(`/article/${data.slug}`)
+      }
+    } catch (e) {
+      console.warn('Revalidation notice:', e)
+    }
+
+    return NextResponse.json({ success: true, article: data })
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 })
   }
@@ -90,6 +147,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: result.error }, { status: 500 })
     }
 
+    try {
+      revalidatePath('/')
+      revalidatePath('/articles')
+      if (validation.data.slug) {
+        revalidatePath(`/article/${validation.data.slug}`)
+      }
+      if (validation.data.category) {
+        revalidatePath(`/${validation.data.category}`)
+      }
+    } catch (e) {
+      console.warn('Revalidation notice:', e)
+    }
+
     return NextResponse.json({ success: true, data: result.article })
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 })
@@ -109,7 +179,7 @@ export async function DELETE(req: NextRequest) {
     // 1. Fetch article details to extract any Cloudinary images
     const { data: article } = await supabase
       .from('articles')
-      .select('content_json, featured_image_url, og_image_url')
+      .select('content_json, slug')
       .eq('id', id)
       .single()
 
@@ -123,8 +193,6 @@ export async function DELETE(req: NextRequest) {
     // 3. Delete associated Cloudinary images
     if (article) {
       const imagesToDelete: string[] = []
-      if (article.featured_image_url) imagesToDelete.push(article.featured_image_url)
-      if (article.og_image_url) imagesToDelete.push(article.og_image_url)
 
       // Search through content_json blocks
       if (article.content_json && typeof article.content_json === 'object') {
@@ -138,6 +206,16 @@ export async function DELETE(req: NextRequest) {
       // Delete in parallel
       const uniqueImages = Array.from(new Set(imagesToDelete))
       await Promise.all(uniqueImages.map((imgUrl) => deleteFromCloudinary(imgUrl)))
+    }
+
+    try {
+      revalidatePath('/')
+      revalidatePath('/articles')
+      if (article?.slug) {
+        revalidatePath(`/article/${article.slug}`)
+      }
+    } catch (e) {
+      console.warn('Revalidation notice:', e)
     }
 
     return NextResponse.json({ success: true, message: 'Deleted article and cleaned Cloudinary assets' })

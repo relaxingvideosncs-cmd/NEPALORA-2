@@ -1,5 +1,4 @@
 import { v2 as cloudinary } from 'cloudinary'
-import sharp from 'sharp'
 
 export interface CloudinaryUploadResponse {
   public_id: string
@@ -62,49 +61,15 @@ export function extractCloudinaryPublicId(url?: string | null): string | null {
 }
 
 /**
- * Server-Side Auto Lossless/High-Res Compression Engine.
- * Ensures no oversized payload ever exceeds Cloudinary limits,
- * while maintaining crystal clear visual fidelity.
+ * Uploads an image directly to Cloudinary with cloud-side incoming transformation.
+ * Cloudinary natively normalizes HEIC/RAW formats, limits dimensions to max 2560px,
+ * applies perceptual quality (auto:best), and saves 90%+ persistent storage.
  */
-async function autoCompressBuffer(inputBuffer: Buffer): Promise<Buffer> {
-  if (inputBuffer.length <= 5 * 1024 * 1024) {
-    return inputBuffer
-  }
-
-  try {
-    const image = sharp(inputBuffer)
-    const metadata = await image.metadata()
-
-    let pipeline = image.rotate()
-
-    if ((metadata.width && metadata.width > 2880) || (metadata.height && metadata.height > 2880)) {
-      pipeline = pipeline.resize({
-        width: 2880,
-        height: 2880,
-        fit: 'inside',
-        withoutEnlargement: true,
-      })
-    }
-
-    if (metadata.format === 'png') {
-      return await pipeline.png({ quality: 90, compressionLevel: 8 }).toBuffer()
-    } else if (metadata.format === 'webp') {
-      return await pipeline.webp({ quality: 90, effort: 4 }).toBuffer()
-    } else {
-      return await pipeline.jpeg({ quality: 88, mozjpeg: true, progressive: true }).toBuffer()
-    }
-  } catch (err) {
-    console.warn('Server-side sharp compression fallback:', err)
-    return inputBuffer
-  }
-}
-
 export async function uploadToCloudinary(
   fileBuffer: Buffer,
-  folder = 'soulofnepal/articles'
+  folder = 'nepalora/articles'
 ): Promise<CloudinaryUploadResponse> {
   const cld = getCloudinary()
-  const processedBuffer = await autoCompressBuffer(fileBuffer)
 
   return new Promise((resolve, reject) => {
     const uploadStream = cld.uploader.upload_stream(
@@ -128,7 +93,7 @@ export async function uploadToCloudinary(
       }
     )
 
-    uploadStream.end(processedBuffer)
+    uploadStream.end(fileBuffer)
   })
 }
 

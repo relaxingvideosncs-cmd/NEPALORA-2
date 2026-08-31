@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { GallerySlot } from '@/types/database'
 import { getAllGalleryPhotosAdmin, getAllPublishedGalleryPhotos } from '@/lib/gallery/service'
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest) {
       gallery_slot,
       image_url,
       title,
+      category,
       description,
       location,
       seo_alt,
@@ -49,6 +51,7 @@ export async function POST(req: NextRequest) {
         gallery_slot,
         image_url,
         title,
+        category: category || 'Mountains & Landscapes',
         description: description || null,
         location: location || null,
         seo_alt: seo_alt || title,
@@ -62,6 +65,16 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    try {
+      revalidatePath('/')
+      revalidatePath('/gallery')
+      revalidatePath('/prepare-for-nepal')
+      revalidatePath('/trekking-adventure')
+      revalidatePath('/recovery-healing')
+    } catch (e) {
+      console.warn('Gallery revalidation notice:', e)
     }
 
     return NextResponse.json({ success: true, photo: data })
@@ -106,6 +119,14 @@ export async function PUT(req: NextRequest) {
         supabase.from('gallery_photos').update({ display_order: item.display_order }).eq('id', item.id)
       )
       await Promise.all(updates)
+
+      try {
+        revalidatePath('/')
+        revalidatePath('/gallery')
+      } catch (e) {
+        console.warn('Gallery revalidation notice:', e)
+      }
+
       return NextResponse.json({ success: true, message: 'Sequence updated successfully' })
     }
 
@@ -127,6 +148,16 @@ export async function PUT(req: NextRequest) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    try {
+      revalidatePath('/')
+      revalidatePath('/gallery')
+      revalidatePath('/prepare-for-nepal')
+      revalidatePath('/trekking-adventure')
+      revalidatePath('/recovery-healing')
+    } catch (e) {
+      console.warn('Gallery revalidation notice:', e)
     }
 
     return NextResponse.json({ success: true, photo: data })
@@ -162,6 +193,16 @@ export async function DELETE(req: NextRequest) {
     // 3. Permanently delete from Cloudinary storage
     if (photo?.image_url) {
       await deleteFromCloudinary(photo.image_url)
+    }
+
+    try {
+      revalidatePath('/')
+      revalidatePath('/gallery')
+      revalidatePath('/prepare-for-nepal')
+      revalidatePath('/trekking-adventure')
+      revalidatePath('/recovery-healing')
+    } catch (e) {
+      console.warn('Gallery revalidation notice:', e)
     }
 
     return NextResponse.json({ success: true, message: 'Deleted from database and Cloudinary storage' })

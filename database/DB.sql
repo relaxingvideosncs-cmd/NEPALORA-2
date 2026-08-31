@@ -478,3 +478,38 @@ DROP POLICY IF EXISTS "Allow reading subscribers" ON newsletter_subscribers;
 CREATE POLICY "Allow reading subscribers"
 ON newsletter_subscribers FOR SELECT
 USING (true);
+
+-- ----------------------------------------------------------
+-- 11. Gallery Photo Categories Table
+-- ----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS gallery_categories (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL UNIQUE,
+    slug VARCHAR(255) NOT NULL UNIQUE,
+    description TEXT,
+    display_order INTEGER NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TRIGGER set_gallery_categories_updated_at
+BEFORE UPDATE ON gallery_categories
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+CREATE INDEX IF NOT EXISTS idx_gallery_categories_slug ON gallery_categories (slug);
+CREATE INDEX IF NOT EXISTS idx_gallery_categories_active_order ON gallery_categories (is_active, display_order ASC);
+
+ALTER TABLE gallery_categories ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow public read on gallery categories"
+    ON gallery_categories FOR SELECT
+    USING (true);
+
+CREATE POLICY "Allow authenticated staff to manage gallery categories"
+    ON gallery_categories FOR ALL
+    TO authenticated
+    USING (true)
+    WITH CHECK (true);
+

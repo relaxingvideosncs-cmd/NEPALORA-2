@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Image as ImageIcon,
   Upload,
@@ -18,16 +18,44 @@ import {
   AlertCircle,
   X,
 } from 'lucide-react'
-import { MediaRecord } from '@/types/database'
-import { compressImageClient } from '@/lib/cloudinary/clientCompress'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { NEPAL_PHOTOS } from '@/lib/data/nepalImages'
+import { getWebImageUrl } from '@/lib/cloudinary/imageHelper'
+
+interface MediaUsage {
+  type: 'article' | 'gallery' | 'bulletin' | 'setting'
+  title: string
+  detail?: string
+}
+
+interface EnrichedMediaRecord {
+  id: string
+  cloudinary_public_id: string
+  secure_url: string
+  width: number
+  height: number
+  format: string
+  bytes?: number
+  alt_text?: string | null
+  title?: string | null
+  caption?: string | null
+  credit?: string | null
+  created_at?: string
+  used_in?: MediaUsage[]
+  is_unused?: boolean
+}
+
+function formatBytes(bytes?: number): string {
+  if (!bytes || bytes <= 0) return '—'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
+}
 
 export default function MediaLibraryClientPage() {
-  const [activeTab, setActiveTab] = useState<'cloud' | 'curated'>('cloud')
+  const [filterTab, setFilterTab] = useState<'all' | 'in_use' | 'unused'>('all')
   const [searchFilter, setSearchFilter] = useState('')
-  const [mediaItems, setMediaItems] = useState<MediaRecord[]>([])
+  const [mediaItems, setMediaItems] = useState<EnrichedMediaRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -59,7 +87,7 @@ export default function MediaLibraryClientPage() {
   // Clear selection when switching tabs
   useEffect(() => {
     setSelectedIds(new Set())
-  }, [activeTab])
+  }, [filterTab])
 
   const handleUploadFromGallery = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -69,18 +97,17 @@ export default function MediaLibraryClientPage() {
     setNotice(null)
 
     try {
-      const compressed = await compressImageClient(file)
       const formData = new FormData()
-      formData.append('file', compressed)
+      formData.append('file', file)
       formData.append('title', file.name.replace(/\.[^/.]+$/, ''))
       formData.append('alt_text', file.name.replace(/\.[^/.]+$/, ''))
+      formData.append('folder', 'nepalora/misc')
 
       const res = await fetch('/api/upload', { method: 'POST', body: formData })
       const data = await res.json()
       if (!res.ok || data.error) throw new Error(data.error || 'Upload failed')
 
       setNotice({ type: 'success', message: `"${file.name}" uploaded to Cloudinary.` })
-      setActiveTab('cloud')
       fetchMedia()
     } catch (err: any) {
       setNotice({ type: 'error', message: err.message || 'Image upload failed' })
@@ -107,7 +134,11 @@ export default function MediaLibraryClientPage() {
 
       setNotice({ type: 'success', message: `Deleted "${name}".` })
       setMediaItems((prev) => prev.filter((m) => m.id !== id))
-      setSelectedIds((prev) => { const n = new Set(prev); n.delete(id); return n })
+      setSelectedIds((prev) => {
+        const n = new Set(prev)
+        n.delete(id)
+        return n
+      })
       setTimeout(() => setNotice(null), 4000)
     } catch (err: any) {
       setNotice({ type: 'error', message: err.message || 'Failed to delete image' })
@@ -151,69 +182,58 @@ export default function MediaLibraryClientPage() {
     })
   }
 
-  // Select all visible media
-  const handleSelectAll = () => {
-    if (selectedIds.size === mediaItems.length) {
-      setSelectedIds(new Set())
+  // Filtered Media Calculation
+  const filteredMedia = useMemo(() => {
+    return mediaItems.filter((item) => {
+      // Tab filter
+      if (filterTab === 'in_use' && item.is_unused) return false
+      if (filterTab === 'unused' && !item.is_unused) return false
+
+      // Search query filter
+      if (!searchFilter.trim()) return true
+      const q = searchFilter.toLowerCase()
+      const titleMatch = (item.title || '').toLowerCase().includes(q)
+      const altMatch = (item.alt_text || '').toLowerCase().includes(q)
+      const formatMatch = (item.format || '').toLowerCase().includes(q)
+      const usageMatch = (item.used_in || []).some((u) => u.title.toLowerCase().includes(q))
+      return titleMatch || altMatch || formatMatch || usageMatch
+    })
+  }, [mediaItems, filterTab, searchFilter])
+
+  const unusedCount = useMemo(() => mediaItems.filter((m) => m.is_unused).length, [mediaItems])
+  const inUseCount = useMemo(() => mediaItems.filter((m) => !m.is_unused).length, [mediaItems])
+
+  const allFilteredSelected =
+    filteredMedia.length > 0 && filteredMedia.every((m) => selectedIds.has(m.id))
+
+  // Select all currently visible filtered media
+  const handleSelectAllVisible = () => {
+    if (allFilteredSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        filteredMedia.forEach((m) => next.delete(m.id))
+        return next
+      })
     } else {
-      setSelectedIds(new Set(mediaItems.map((m) => m.id)))
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        filteredMedia.forEach((m) => next.add(m.id))
+        return next
+      })
     }
   }
 
-  // Select unused media (not referenced by any gallery, article cover, or bulletin)
-  // We can only do client-side URL matching here — items with no seo alt or title are likely "unused"
-  // A robust implementation would compare secure_urls against article/gallery/bulletin records
-  const handleSelectUnused = async () => {
-    try {
-      // Fetch all referenced image URLs from articles + galleries + bulletins
-      const [artRes, galRes, bulRes] = await Promise.all([
-        fetch('/api/articles'),
-        fetch('/api/galleries'),
-        fetch('/api/bulletins'),
-      ])
-      const [artData, galData, bulData]: any[] = await Promise.all([
-        artRes.ok ? artRes.json() : {},
-        galRes.ok ? galRes.json() : {},
-        bulRes.ok ? bulRes.json() : {},
-      ])
-
-      const usedUrls = new Set<string>()
-
-      // Collect article cover images
-      ;(artData.articles || []).forEach((a: any) => {
-        if (a.cover_image_url) usedUrls.add(a.cover_image_url)
-      })
-      // Collect gallery photo URLs
-      ;(galData.items || []).forEach((g: any) => {
-        if (g.image_url) usedUrls.add(g.image_url)
-      })
-      // Collect bulletin picture URLs
-      ;(bulData.bulletins || []).forEach((b: any) => {
-        if (b.picture_url) usedUrls.add(b.picture_url)
-      })
-
-      const unusedIds = mediaItems
-        .filter((m) => !usedUrls.has(m.secure_url))
-        .map((m) => m.id)
-
-      setSelectedIds(new Set(unusedIds))
-      setNotice({
-        type: 'success',
-        message: `Selected ${unusedIds.length} unused image(s) not referenced anywhere.`,
-      })
-      setTimeout(() => setNotice(null), 5000)
-    } catch (err: any) {
-      setNotice({ type: 'error', message: 'Could not determine unused images: ' + err.message })
-    }
+  // Select all unused media across the library
+  const handleSelectAllUnused = () => {
+    const unusedIds = mediaItems.filter((m) => m.is_unused).map((m) => m.id)
+    setSelectedIds(new Set(unusedIds))
+    setFilterTab('unused')
+    setNotice({
+      type: 'success',
+      message: `Selected all ${unusedIds.length} unused image(s).`,
+    })
+    setTimeout(() => setNotice(null), 4000)
   }
-
-  const filteredCurated = NEPAL_PHOTOS.filter((p) => {
-    if (!searchFilter.trim()) return true
-    const q = searchFilter.toLowerCase()
-    return p.title.toLowerCase().includes(q) || p.caption?.toLowerCase().includes(q)
-  })
-
-  const allSelected = mediaItems.length > 0 && selectedIds.size === mediaItems.length
 
   return (
     <div className="space-y-6 sm:space-y-8 py-2 sm:py-6">
@@ -222,12 +242,15 @@ export default function MediaLibraryClientPage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Badge tone="blue">Media Assets</Badge>
+            <span className="text-xs text-ink-tertiary">
+              {mediaItems.length} Total Master Assets
+            </span>
           </div>
           <h1 className="font-display text-2xl sm:text-3xl font-bold text-ink">
             Media Library
           </h1>
           <p className="text-xs sm:text-sm text-ink-secondary mt-0.5">
-            Cloudinary media management. Uploads and deletions sync across database and Cloudinary.
+            Cloudinary media management. Tracks usage across articles, galleries, bulletins, and site settings.
           </p>
         </div>
 
@@ -276,315 +299,363 @@ export default function MediaLibraryClientPage() {
         </div>
       )}
 
-      {/* Tabs & Search */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-hairline pb-3">
-        <div className="flex items-center gap-2">
+      {/* Filter Tabs & Search Bar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-hairline pb-4">
+        {/* Filter Pills */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
           <button
             type="button"
-            onClick={() => setActiveTab('cloud')}
+            onClick={() => setFilterTab('all')}
             className={`px-3.5 py-1.5 rounded-pill text-xs font-semibold transition-all cursor-pointer border ${
-              activeTab === 'cloud'
+              filterTab === 'all'
                 ? 'bg-accent-blue/10 text-accent-blue border-accent-blue/30 shadow-2xs'
                 : 'bg-bg-elevated text-ink-secondary hover:text-ink border-hairline'
             }`}
           >
-            Cloudinary Uploads ({mediaItems.length})
+            All Media ({mediaItems.length})
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('curated')}
+            onClick={() => setFilterTab('in_use')}
             className={`px-3.5 py-1.5 rounded-pill text-xs font-semibold transition-all cursor-pointer border ${
-              activeTab === 'curated'
-                ? 'bg-accent-blue/10 text-accent-blue border-accent-blue/30 shadow-2xs'
+              filterTab === 'in_use'
+                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 shadow-2xs'
                 : 'bg-bg-elevated text-ink-secondary hover:text-ink border-hairline'
             }`}
           >
-            Local Curated Pack ({NEPAL_PHOTOS.length})
+            In Use ({inUseCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterTab('unused')}
+            className={`px-3.5 py-1.5 rounded-pill text-xs font-semibold transition-all cursor-pointer border ${
+              filterTab === 'unused'
+                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 shadow-2xs'
+                : 'bg-bg-elevated text-ink-secondary hover:text-ink border-hairline'
+            }`}
+          >
+            Unused ({unusedCount})
           </button>
         </div>
 
-        {activeTab === 'curated' && (
-          <div className="relative w-full sm:w-64">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-ink-tertiary" />
-            <input
-              type="text"
-              value={searchFilter}
-              onChange={(e) => setSearchFilter(e.target.value)}
-              placeholder="Filter by photo title..."
-              className="w-full pl-8 pr-3 py-1.5 min-h-[36px] text-xs bg-bg-elevated border border-hairline rounded-pill text-ink focus:outline-none focus:border-hairline-strong"
-            />
-          </div>
-        )}
+        {/* Search */}
+        <div className="relative w-full md:w-72">
+          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-ink-tertiary" />
+          <input
+            type="text"
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            placeholder="Search by title, format, or usage..."
+            className="w-full pl-8 pr-3 py-1.5 min-h-[36px] text-xs bg-bg-elevated border border-hairline rounded-pill text-ink focus:outline-none focus:border-hairline-strong placeholder:text-ink-tertiary"
+          />
+          {searchFilter && (
+            <button
+              onClick={() => setSearchFilter('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-tertiary hover:text-ink"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* ── CLOUDINARY TAB ─────────────────────────────────────────────── */}
-      {activeTab === 'cloud' && (
-        <>
-          {/* Multi-select toolbar (only shown when media exists) */}
-          {!loading && mediaItems.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Select All toggle */}
+      {/* Multi-select Toolbar */}
+      {!loading && mediaItems.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-bg-elevated/70 border border-hairline">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Select All Visible toggle */}
+            <button
+              type="button"
+              onClick={handleSelectAllVisible}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[34px] rounded-pill border border-hairline bg-bg text-xs font-semibold text-ink hover:text-ink transition-colors cursor-pointer"
+            >
+              {allFilteredSelected ? (
+                <CheckSquare className="w-3.5 h-3.5 text-accent-blue" />
+              ) : (
+                <Square className="w-3.5 h-3.5 text-ink-tertiary" />
+              )}
+              <span>{allFilteredSelected ? 'Deselect Tab' : 'Select Visible'}</span>
+            </button>
+
+            {/* Quick Action: Select All Unused */}
+            {unusedCount > 0 && (
               <button
                 type="button"
-                onClick={handleSelectAll}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-pill border border-hairline bg-bg-elevated text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer"
+                onClick={handleSelectAllUnused}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[34px] rounded-pill border border-amber-500/30 bg-amber-500/10 text-xs font-semibold text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 transition-colors cursor-pointer"
               >
-                {allSelected ? (
-                  <CheckSquare className="w-3.5 h-3.5 text-accent-blue" />
-                ) : (
-                  <Square className="w-3.5 h-3.5" />
-                )}
-                <span>{allSelected ? 'Deselect All' : 'Select All'}</span>
+                <Layers className="w-3.5 h-3.5" />
+                <span>Select All Unused ({unusedCount})</span>
               </button>
+            )}
+          </div>
 
-              {/* Select Unused */}
+          {/* Bulk Delete Trigger */}
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-ink-secondary">
+                {selectedIds.size} selected
+              </span>
               <button
                 type="button"
-                onClick={handleSelectUnused}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-pill border border-hairline bg-bg-elevated text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer"
+                onClick={() => setBulkDeleteConfirm(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 min-h-[34px] rounded-pill border border-accent-red/30 bg-accent-red/10 text-xs font-semibold text-accent-red hover:bg-accent-red/20 transition-colors cursor-pointer shadow-2xs"
               >
-                <Layers className="w-3.5 h-3.5 text-accent-blue" />
-                <span>Select Unused</span>
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete {selectedIds.size}</span>
               </button>
-
-              {/* Bulk Delete — appears when items are selected */}
-              {selectedIds.size > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setBulkDeleteConfirm(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-pill border border-accent-red/30 bg-accent-red/10 text-xs font-semibold text-accent-red hover:bg-accent-red/20 transition-colors cursor-pointer"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Delete {selectedIds.size} selected</span>
-                </button>
-              )}
-
-              {selectedIds.size > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedIds(new Set())}
-                  className="inline-flex items-center gap-1 text-xs text-ink-tertiary hover:text-ink cursor-pointer min-h-[36px] px-2"
-                >
-                  <X className="w-3 h-3" />
-                  Clear
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setSelectedIds(new Set())}
+                className="text-xs text-ink-tertiary hover:text-ink cursor-pointer px-2"
+              >
+                Clear
+              </button>
             </div>
           )}
+        </div>
+      )}
 
-          {loading ? (
-            <div className="py-16 flex justify-center">
-              <Loader2 className="w-6 h-6 animate-spin text-accent-blue" />
-            </div>
-          ) : mediaItems.length === 0 ? (
-            <div className="border border-dashed border-hairline rounded-2xl p-12 text-center text-ink-tertiary bg-bg-elevated/40 space-y-3">
-              <ImageIcon className="w-8 h-8 mx-auto text-ink-tertiary" />
-              <p className="font-semibold text-ink">No Cloudinary uploads yet.</p>
-              <p className="text-xs text-ink-tertiary max-w-sm mx-auto">
-                Use the &quot;Upload Image&quot; button above to get started.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
-              {mediaItems.map((item) => {
-                const isSelected = selectedIds.has(item.id)
-                return (
+      {/* Grid of Media Assets */}
+      {loading ? (
+        <div className="py-20 flex flex-col items-center justify-center gap-3">
+          <Loader2 className="w-7 h-7 animate-spin text-accent-blue" />
+          <p className="text-xs text-ink-secondary">Analyzing media usage and storage footprint...</p>
+        </div>
+      ) : filteredMedia.length === 0 ? (
+        <div className="border border-dashed border-hairline rounded-2xl p-12 text-center text-ink-tertiary bg-bg-elevated/40 space-y-3">
+          <ImageIcon className="w-8 h-8 mx-auto text-ink-tertiary" />
+          <p className="font-semibold text-ink">
+            {searchFilter
+              ? 'No media matches your search query.'
+              : filterTab === 'unused'
+              ? 'Great news! All media assets are currently in use.'
+              : filterTab === 'in_use'
+              ? 'No assets in use yet.'
+              : 'No Cloudinary uploads yet.'}
+          </p>
+          <p className="text-xs text-ink-tertiary max-w-sm mx-auto">
+            {searchFilter ? 'Try searching for a different keyword or format.' : 'Upload photos or sync articles to populate.'}
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+          {filteredMedia.map((item) => {
+            const isSelected = selectedIds.has(item.id)
+            const usages = item.used_in || []
+            const isUnused = item.is_unused
+
+            return (
+              <div
+                key={item.id}
+                className={`border rounded-2xl overflow-hidden bg-bg-elevated shadow-xs group flex flex-col justify-between transition-all ${
+                  isSelected
+                    ? 'border-accent-blue ring-2 ring-accent-blue/30'
+                    : 'border-hairline hover:border-hairline-strong'
+                }`}
+              >
+                {/* Thumbnail Preview Area */}
+                <div
+                  className="aspect-video bg-neutral-900/10 relative overflow-hidden cursor-pointer"
+                  onClick={() => toggleSelect(item.id)}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={getWebImageUrl(item.secure_url, 'card')}
+                    alt={item.alt_text || 'Media asset'}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    loading="lazy"
+                    onError={(e) => {
+                      const target = e.currentTarget
+                      if (target.src !== item.secure_url) {
+                        target.src = item.secure_url
+                      }
+                    }}
+                  />
+
+                  {/* Top-Left Selection Checkbox */}
                   <div
-                    key={item.id}
-                    className={`border rounded-xl overflow-hidden bg-bg-elevated shadow-xs group flex flex-col justify-between transition-all ${
-                      isSelected
-                        ? 'border-accent-blue ring-2 ring-accent-blue/30'
-                        : 'border-hairline hover:border-hairline-strong'
+                    className={`absolute top-2.5 left-2.5 transition-opacity ${
+                      isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                     }`}
                   >
-                    {/* Image with checkbox overlay */}
                     <div
-                      className="aspect-video bg-hairline relative overflow-hidden cursor-pointer"
-                      onClick={() => toggleSelect(item.id)}
+                      className={`w-5 h-5 rounded-md flex items-center justify-center border transition-colors ${
+                        isSelected
+                          ? 'bg-accent-blue border-accent-blue text-white shadow-xs'
+                          : 'bg-black/60 border-white/40 text-transparent backdrop-blur-xs'
+                      }`}
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={item.secure_url}
-                        alt={item.alt_text || 'Media item'}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
-                      {/* Checkbox overlay */}
-                      <div className={`absolute top-2 left-2 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                        <div className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-colors ${
-                          isSelected
-                            ? 'bg-accent-blue border-accent-blue'
-                            : 'bg-white/80 border-white/60 backdrop-blur-sm'
-                        }`}>
-                          {isSelected && <Check className="w-3 h-3 text-white" />}
-                        </div>
-                      </div>
-                      {/* Selected overlay tint */}
-                      {isSelected && (
-                        <div className="absolute inset-0 bg-accent-blue/10 pointer-events-none" />
+                      <Check className="w-3.5 h-3.5 text-white" />
+                    </div>
+                  </div>
+
+                  {/* Top-Right Usage Flag Badge */}
+                  <div className="absolute top-2.5 right-2.5">
+                    {isUnused ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold bg-amber-500/90 text-white rounded-pill shadow-xs backdrop-blur-xs">
+                        Unused
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold bg-emerald-600/90 text-white rounded-pill shadow-xs backdrop-blur-xs">
+                        In Use ({usages.length})
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Bottom-Right File Size Badge */}
+                  <div className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/75 backdrop-blur-xs text-white text-[10px] font-mono rounded-md">
+                    {formatBytes(item.bytes)}
+                  </div>
+
+                  {/* Selection Overlay */}
+                  {isSelected && (
+                    <div className="absolute inset-0 bg-accent-blue/15 pointer-events-none" />
+                  )}
+                </div>
+
+                {/* Content & Metadata */}
+                <div className="p-3 text-[11px] text-ink-secondary space-y-2.5 flex-1 flex flex-col justify-between">
+                  <div>
+                    <p
+                      className="font-semibold text-ink truncate text-xs"
+                      title={item.alt_text || item.title || 'Untitled Image'}
+                    >
+                      {item.alt_text || item.title || 'Untitled Image'}
+                    </p>
+
+                    {/* Format and Dimensions */}
+                    <div className="flex items-center gap-1.5 mt-1 text-[10px] text-ink-tertiary font-mono">
+                      <span className="uppercase px-1.5 py-0.2 bg-bg rounded border border-hairline font-bold">
+                        {item.format || 'JPG'}
+                      </span>
+                      {item.width > 0 && item.height > 0 && (
+                        <span>
+                          {item.width}×{item.height}
+                        </span>
                       )}
                     </div>
 
-                    <div className="p-3 text-[11px] text-ink-secondary space-y-2">
-                      <div>
-                        <p
-                          className="font-semibold text-ink truncate"
-                          title={item.alt_text || item.title || 'Untitled'}
-                        >
-                          {item.alt_text || item.title || 'Untitled Image'}
-                        </p>
-                        {item.format && (
-                          <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 bg-bg text-ink-tertiary rounded-pill border border-hairline">
-                            {item.format}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-between pt-1 border-t border-hairline">
-                        <button
-                          type="button"
-                          onClick={() => handleCopyUrl(item.secure_url, item.id)}
-                          className="inline-flex items-center gap-1 text-ink-secondary hover:text-ink font-semibold transition-colors min-h-[36px] cursor-pointer"
-                          title="Copy Secure URL"
-                        >
-                          {copiedId === item.id ? (
-                            <>
-                              <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                              <span className="text-emerald-600 dark:text-emerald-400 text-[10px]">Copied!</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3 h-3 text-accent-blue" />
-                              <span className="text-[10px]">Copy URL</span>
-                            </>
+                    {/* Referenced In Details */}
+                    {usages.length > 0 ? (
+                      <div className="mt-2 space-y-1">
+                        <span className="text-[10px] text-ink-tertiary block font-semibold">
+                          Referenced in:
+                        </span>
+                        <div className="space-y-0.5">
+                          {usages.slice(0, 2).map((u, i) => (
+                            <p
+                              key={i}
+                              className="text-[10px] text-emerald-700 dark:text-emerald-400 truncate flex items-center gap-1"
+                              title={`${u.type.toUpperCase()}: ${u.title}`}
+                            >
+                              <span className="capitalize font-semibold text-ink-tertiary">[{u.type}]</span>
+                              <span className="truncate">{u.title}</span>
+                            </p>
+                          ))}
+                          {usages.length > 2 && (
+                            <span className="text-[10px] text-ink-tertiary italic">
+                              +{usages.length - 2} more references
+                            </span>
                           )}
-                        </button>
-
-                        <div className="flex items-center gap-1">
-                          <a
-                            href={item.secure_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="min-h-[32px] min-w-[32px] flex items-center justify-center text-ink-tertiary hover:text-ink rounded-pill"
-                            title="Open Full Image"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </a>
-
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteMedia(item.id, item.title || item.alt_text || 'Image')}
-                            className="min-h-[32px] min-w-[32px] flex items-center justify-center text-ink-tertiary hover:text-accent-red rounded-pill transition-colors cursor-pointer"
-                            title="Delete from database and Cloudinary"
-                          >
-                            <Trash2 className="w-3.5 h-3.5 text-accent-red" />
-                          </button>
                         </div>
                       </div>
+                    ) : (
+                      <div className="mt-2 text-[10px] text-amber-700 dark:text-amber-400">
+                        Not referenced in any article or gallery.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions Footer */}
+                  <div className="flex items-center justify-between pt-2 border-t border-hairline">
+                    <button
+                      type="button"
+                      onClick={() => handleCopyUrl(item.secure_url, item.id)}
+                      className="inline-flex items-center gap-1 text-ink-secondary hover:text-ink font-semibold transition-colors min-h-[32px] cursor-pointer"
+                      title="Copy CDN Secure URL"
+                    >
+                      {copiedId === item.id ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-600" />
+                          <span className="text-emerald-600">Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3" />
+                          <span>Copy URL</span>
+                        </>
+                      )}
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      <a
+                        href={getWebImageUrl(item.secure_url, 'full') || item.secure_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 text-ink-tertiary hover:text-ink rounded-md transition-colors"
+                        title="View Full Resolution Master"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteMedia(item.id, item.alt_text || item.title || 'asset')}
+                        className="p-1.5 text-ink-tertiary hover:text-accent-red rounded-md transition-colors cursor-pointer"
+                        title="Delete Asset"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
-                )
-              })}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* ── CURATED TAB ────────────────────────────────────────────────── */}
-      {activeTab === 'curated' && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
-          {filteredCurated.map((photo) => (
-            <div
-              key={photo.slug}
-              className="border border-hairline rounded-xl overflow-hidden bg-bg-elevated shadow-xs group flex flex-col justify-between"
-            >
-              <div className="aspect-video bg-hairline relative overflow-hidden">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={photo.src}
-                  alt={photo.alt}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  loading="lazy"
-                />
-              </div>
-
-              <div className="p-3 text-[11px] text-ink-secondary space-y-2">
-                <div>
-                  <p className="font-semibold text-ink truncate" title={photo.title}>
-                    {photo.title}
-                  </p>
-                  <span className="text-[10px] text-ink-tertiary">
-                    {photo.optimizedSizeKb} KB • WebP High Res
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between pt-1 border-t border-hairline">
-                  <button
-                    type="button"
-                    onClick={() => handleCopyUrl(photo.src, photo.slug)}
-                    className="inline-flex items-center gap-1 text-ink-secondary hover:text-ink font-semibold transition-colors min-h-[36px] cursor-pointer"
-                  >
-                    {copiedId === photo.slug ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                        <span className="text-emerald-600 dark:text-emerald-400 text-[11px]">Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5 text-accent-blue" />
-                        <span className="text-[11px]">Copy Path</span>
-                      </>
-                    )}
-                  </button>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
-      {/* ── Bulk Delete Confirmation Modal ─────────────────────────────── */}
+      {/* Bulk Delete Confirmation Modal */}
       {bulkDeleteConfirm && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-bg-elevated border border-hairline rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="p-2 rounded-full bg-accent-red/10 flex-shrink-0">
-                <AlertCircle className="w-5 h-5 text-accent-red" />
-              </div>
-              <div>
-                <h3 className="font-display font-bold text-base text-ink">
-                  Delete {selectedIds.size} image{selectedIds.size !== 1 ? 's' : ''}?
-                </h3>
-                <p className="text-xs text-ink-secondary mt-1 leading-relaxed">
-                  This will permanently remove {selectedIds.size} image{selectedIds.size !== 1 ? 's' : ''} from
-                  both Cloudinary storage and the database. <strong className="text-ink">This cannot be undone.</strong>
-                </p>
-              </div>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-bg-elevated border border-hairline rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-accent-red">
+              <AlertCircle className="w-6 h-6 flex-shrink-0" />
+              <h2 className="font-display font-bold text-lg text-ink">
+                Confirm Permanent Bulk Deletion
+              </h2>
             </div>
-
-            <div className="flex items-center gap-2 pt-2">
+            <p className="text-xs text-ink-secondary leading-relaxed">
+              You are about to permanently delete{' '}
+              <strong className="text-ink">{selectedIds.size} asset(s)</strong> from your Supabase
+              database and Cloudinary cloud storage. This action cannot be undone.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2">
               <Button
-                type="button"
                 variant="secondary"
                 size="sm"
                 onClick={() => setBulkDeleteConfirm(false)}
-                className="flex-1"
+                disabled={bulkDeleting}
               >
                 Cancel
               </Button>
-              <button
-                type="button"
+              <Button
+                variant="primary"
+                size="sm"
+                className="bg-accent-red hover:bg-accent-red/90 text-white border-none"
                 onClick={handleBulkDelete}
                 disabled={bulkDeleting}
-                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 min-h-[40px] rounded-pill bg-accent-red text-white text-xs font-bold transition-all active:scale-95 disabled:opacity-60 cursor-pointer"
               >
                 {bulkDeleting ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                    Deleting...
+                  </>
                 ) : (
-                  <Trash2 className="w-3.5 h-3.5" />
+                  `Delete ${selectedIds.size} Assets`
                 )}
-                <span>{bulkDeleting ? 'Deleting...' : `Delete ${selectedIds.size}`}</span>
-              </button>
+              </Button>
             </div>
           </div>
         </div>

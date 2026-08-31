@@ -20,6 +20,8 @@ import {
 const HEART_PATH =
   'M12 20.5c-.3 0-.6-.1-.8-.3C7.8 17.3 3 13.2 3 8.9 3 5.9 5.3 3.5 8.3 3.5c1.7 0 3.2.8 4.2 2.1.9-1.3 2.5-2.1 4.2-2.1 3 0 5.3 2.4 5.3 5.4 0 4.3-4.8 8.4-8.2 11.3-.2.2-.5.3-.8.3z'
 
+const TRANSITION_MS = 380
+
 type Particle = { id: number; dx: number; dy: number }
 
 export interface ImageViewerPhoto {
@@ -31,6 +33,7 @@ export interface ImageViewerPhoto {
   alt?: string
   like_count?: number
   slot?: string
+  category?: string
 }
 
 interface ImageViewerModalProps {
@@ -41,6 +44,28 @@ interface ImageViewerModalProps {
   isHandwrittenCaption?: boolean
 }
 
+/**
+ * Crisp image renderer with instant display & high-resolution delivery.
+ * Avoids heavy artificial blurs so images remain sharp and crystal clear.
+ */
+function StageImage({ photo }: { photo: ImageViewerPhoto }) {
+  const fullSrc = getWebImageUrl(photo.src, 'full')
+  const [imageError, setImageError] = useState(false)
+
+  return (
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-1 sm:p-2">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={imageError ? photo.src : fullSrc}
+        alt={photo.alt || photo.title || 'Nepalora Photograph'}
+        draggable={false}
+        onError={() => setImageError(true)}
+        className="max-h-full max-w-full w-auto h-auto object-contain select-none rounded-lg drop-shadow-2xl transition-transform duration-300"
+      />
+    </div>
+  )
+}
+
 export function ImageViewerModal({
   photos,
   initialIndex,
@@ -48,12 +73,26 @@ export function ImageViewerModal({
   onClose,
   isHandwrittenCaption = false,
 }: ImageViewerModalProps) {
-  const [currentIndex, setCurrentIndex] = useState(initialIndex)
+  const [current, setCurrent] = useState(() => ({
+    photo: photos[initialIndex] || photos[0],
+    index: initialIndex,
+  }))
+  const [incoming, setIncoming] = useState<{
+    photo: ImageViewerPhoto
+    index: number
+    dir: 1 | -1
+  } | null>(null)
+  const [animate, setAnimate] = useState(false)
+  const [direction, setDirection] = useState<1 | -1>(1)
+  const isAnimatingRef = useRef(false)
+  const transitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const rafRef = useRef<number | null>(null)
+
   const [copiedShare, setCopiedShare] = useState(false)
   const [touchStartX, setTouchStartX] = useState<number | null>(null)
   const [likesMap, setLikesMap] = useState<Record<string, { liked: boolean; count: number }>>({})
 
-  // Instagram particle & big heart states
+  // Instagram particle & floating heart states
   const [particles, setParticles] = useState<Particle[]>([])
   const [bigHeartKey, setBigHeartKey] = useState<number | null>(null)
   const [pulseKey, setPulseKey] = useState(0)
@@ -61,11 +100,92 @@ export function ImageViewerModal({
   const lastTap = useRef(0)
   const particleId = useRef(0)
 
-  useEffect(() => {
-    setCurrentIndex(initialIndex)
-  }, [initialIndex])
+  const preloadedRef = useRef<Set<string>>(new Set())
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
 
-  // Initialize from database photo records and localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setPrefersReducedMotion(window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+    }
+  }, [])
+
+  const effectiveDuration = prefersReducedMotion ? 0 : TRANSITION_MS
+
+  // Preload neighbor full-resolution photos
+  const preload = useCallback(
+    (index: number) => {
+      const photo = photos[index]
+      if (!photo) return
+      const src = getWebImageUrl(photo.src, 'full')
+      if (preloadedRef.current.has(src)) return
+      const img = new Image()
+      img.src = src
+      preloadedRef.current.add(src)
+    },
+    [photos]
+  )
+
+  // Fluid transition navigator
+  const navigate = useCallback(
+    (targetIndex: number, dir: 1 | -1) => {
+      if (photos.length <= 1) return
+      if (isAnimatingRef.current) return
+      const nextPhoto = photos[targetIndex]
+      if (!nextPhoto) return
+
+      isAnimatingRef.current = true
+      setDirection(dir)
+      setIncoming({ photo: nextPhoto, index: targetIndex, dir })
+      setAnimate(false)
+
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = requestAnimationFrame(() => setAnimate(true))
+      })
+
+      if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current)
+      transitionTimeoutRef.current = setTimeout(() => {
+        setCurrent({ photo: nextPhoto, index: targetIndex })
+        setIncoming(null)
+        setAnimate(false)
+        isAnimatingRef.current = false
+      }, effectiveDuration || 0)
+
+      preload((targetIndex + 1) % photos.length)
+      preload((targetIndex - 1 + photos.length) % photos.length)
+    },
+    [photos, preload, effectiveDuration]
+  )
+
+  const goNext = useCallback(() => {
+    navigate((current.index + 1) % photos.length, 1)
+  }, [current.index, photos.length, navigate])
+
+  const goPrev = useCallback(() => {
+    navigate((current.index - 1 + photos.length) % photos.length, -1)
+  }, [current.index, photos.length, navigate])
+
+  // Sync initial state
+  useEffect(() => {
+    if (!isOpen) return
+    setCurrent({ photo: photos[initialIndex] || photos[0], index: initialIndex })
+    setIncoming(null)
+    setAnimate(false)
+    isAnimatingRef.current = false
+    if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current)
+    preload(initialIndex)
+    preload((initialIndex + 1) % photos.length)
+    preload((initialIndex - 1 + photos.length) % photos.length)
+  }, [initialIndex, isOpen, photos, preload])
+
+  useEffect(() => {
+    return () => {
+      if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current)
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    }
+  }, [])
+
+  // Sync likes from local storage and photos
   useEffect(() => {
     const stored = getStoredLikedIds()
     const nextMap: Record<string, { liked: boolean; count: number }> = {}
@@ -78,7 +198,7 @@ export function ImageViewerModal({
     setLikesMap(nextMap)
   }, [photos])
 
-  // Synchronize across components
+  // Global event sync
   useEffect(() => {
     const handleSync = (e: Event) => {
       const { photoId, liked, count } = (e as CustomEvent).detail || {}
@@ -97,7 +217,7 @@ export function ImageViewerModal({
     return () => window.removeEventListener('gallery_like_sync', handleSync)
   }, [])
 
-  // Keyboard navigation & lock body scroll
+  // Keyboard navigation & scroll locking
   useEffect(() => {
     if (!isOpen) return
 
@@ -105,9 +225,9 @@ export function ImageViewerModal({
       if (e.key === 'Escape') {
         onClose()
       } else if (e.key === 'ArrowRight') {
-        setCurrentIndex((prev) => (prev + 1) % photos.length)
+        goNext()
       } else if (e.key === 'ArrowLeft') {
-        setCurrentIndex((prev) => (prev - 1 + photos.length) % photos.length)
+        goPrev()
       }
     }
 
@@ -118,18 +238,19 @@ export function ImageViewerModal({
       document.body.style.overflow = ''
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen, photos.length, onClose])
+  }, [isOpen, goNext, goPrev, onClose])
 
-  const currentPhoto = photos[currentIndex] || photos[0]
-  const currentLike = currentPhoto
-    ? likesMap[currentPhoto.id] || {
-        liked: isPhotoLikedLocally(currentPhoto.id),
-        count: Number(currentPhoto.like_count) || 0,
+  const targetPhoto = incoming ? incoming.photo : current.photo
+  const targetIndex = incoming ? incoming.index : current.index
+
+  const currentLike = targetPhoto
+    ? likesMap[targetPhoto.id] || {
+        liked: isPhotoLikedLocally(targetPhoto.id),
+        count: Number(targetPhoto.like_count) || 0,
       }
     : { liked: false, count: 0 }
 
-  // Spawns 8 radial burst particles around the heart button
-  const spawnParticles = () => {
+  const spawnParticles = useCallback(() => {
     const next: Particle[] = Array.from({ length: 8 }, (_, i) => {
       const angle = (Math.PI * 2 * i) / 8
       const dist = 18 + Math.random() * 6
@@ -142,25 +263,24 @@ export function ImageViewerModal({
     })
     setParticles(next)
     setTimeout(() => setParticles([]), 500)
-  }
+  }, [])
 
-  // Plays big overlay heart + radial button particles + pulse
-  const playLikeAnimation = () => {
+  const playLikeAnimation = useCallback(() => {
     const now = Date.now()
     setBigHeartKey(now)
     setTimeout(() => setBigHeartKey((k) => (k === now ? null : k)), 750)
 
     setPulseKey((k) => k + 1)
     spawnParticles()
-  }
+  }, [spawnParticles])
 
-  // Button Like/Unlike Toggle
+  // Like Toggle
   const handleLikeToggle = useCallback(
     async (photoId: string, e?: React.MouseEvent) => {
       e?.stopPropagation()
       const currentState = likesMap[photoId] || {
         liked: isPhotoLikedLocally(photoId),
-        count: Number(currentPhoto?.like_count) || 0,
+        count: Number(targetPhoto?.like_count) || 0,
       }
 
       if (!currentState.liked) {
@@ -173,10 +293,10 @@ export function ImageViewerModal({
         [photoId]: updated,
       }))
     },
-    [likesMap, currentPhoto]
+    [likesMap, targetPhoto, playLikeAnimation]
   )
 
-  // Double-tap on photo (matches Instagram: triggers full like animation & sets liked)
+  // Double-Tap to like on photo stage
   const handlePhotoClick = useCallback(
     async (photoId: string) => {
       const now = Date.now()
@@ -184,7 +304,7 @@ export function ImageViewerModal({
         setShowHint(false)
         const currentState = likesMap[photoId] || {
           liked: isPhotoLikedLocally(photoId),
-          count: Number(currentPhoto?.like_count) || 0,
+          count: Number(targetPhoto?.like_count) || 0,
         }
 
         playLikeAnimation()
@@ -202,10 +322,10 @@ export function ImageViewerModal({
         lastTap.current = now
       }
     },
-    [likesMap, currentPhoto]
+    [likesMap, targetPhoto, playLikeAnimation]
   )
 
-  // Share Handler
+  // Share
   const handleShare = useCallback((photo: ImageViewerPhoto, e?: React.MouseEvent) => {
     e?.stopPropagation()
     const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}${photo.src}` : photo.src
@@ -230,17 +350,32 @@ export function ImageViewerModal({
 
   if (!isOpen || !photos || photos.length === 0) return null
 
-  const webSrc = getWebImageUrl(currentPhoto.src)
+  // Horizontal parallax offset transitions
+  const outgoingStyle: React.CSSProperties = incoming
+    ? {
+        transform: `translateX(${animate ? (direction === 1 ? '-4%' : '4%') : '0%'})`,
+        opacity: animate ? 0 : 1,
+        transition: `transform ${effectiveDuration}ms cubic-bezier(0.22,0.61,0.36,1), opacity ${effectiveDuration}ms ease`,
+      }
+    : { transform: 'translateX(0)', opacity: 1 }
+
+  const incomingStyle: React.CSSProperties = incoming
+    ? {
+        transform: `translateX(${animate ? '0%' : incoming.dir === 1 ? '4%' : '-4%'})`,
+        opacity: animate ? 1 : 0,
+        transition: `transform ${effectiveDuration}ms cubic-bezier(0.22,0.61,0.36,1), opacity ${effectiveDuration}ms ease`,
+      }
+    : {}
 
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={currentPhoto.title || 'Instagram style photograph viewer'}
+      aria-label={targetPhoto.title || 'Photograph viewer'}
       onClick={onClose}
       className="
         fixed inset-0 z-[99999] flex items-center justify-center
-        bg-black/90 backdrop-blur-md p-2 sm:p-4 md:p-6 lg:p-10
+        bg-white/85 dark:bg-black/90 backdrop-blur-xl p-2 sm:p-4 md:p-6 lg:p-10
         animate-in fade-in-0 duration-150 select-none
       "
     >
@@ -252,27 +387,28 @@ export function ImageViewerModal({
         className="
           absolute top-3 right-3 sm:top-5 sm:right-5 z-50
           w-10 h-10 min-h-[40px] min-w-[40px] rounded-full
-          bg-black/60 hover:bg-black/85 text-white/90 hover:text-white
-          border border-white/20 shadow-xl flex items-center justify-center
-          transition-all active:scale-90 cursor-pointer
+          bg-white/80 hover:bg-white text-ink dark:bg-black/60 dark:hover:bg-black/85 dark:text-white
+          border border-hairline dark:border-white/20 shadow-xl flex items-center justify-center
+          transition-all active:scale-90 cursor-pointer backdrop-blur-md
         "
       >
         <X className="w-5 h-5" />
       </button>
 
-      {/* Main Instagram Split-Pane Shell */}
+      {/* Main Split-Pane Shell (Adaptive Light & Dark Modes) */}
       <div
         onClick={(e) => e.stopPropagation()}
         className="
-          relative w-full max-w-6xl max-h-[92vh] sm:max-h-[88vh]
-          bg-[#000000] dark:bg-[#121212] rounded-2xl sm:rounded-3xl
-          border border-white/15 shadow-2xl overflow-hidden
+          relative w-full max-w-6xl max-h-[94vh] sm:max-h-[88vh]
+          bg-white dark:bg-[#121212] text-ink dark:text-white
+          rounded-2xl sm:rounded-3xl
+          border border-hairline dark:border-white/15 shadow-2xl overflow-hidden
           flex flex-col md:flex-row
           animate-in zoom-in-95 duration-150
         "
       >
         {/* ========================================================= */}
-        {/* LEFT PANE: PHOTO STAGE (Zero Crop, Any Aspect Ratio)      */}
+        {/* LEFT PANE: PHOTO STAGE — Fixed size & Parallax Transition */}
         {/* ========================================================= */}
         <div
           onTouchStart={(e) => setTouchStartX(e.touches[0].clientX)}
@@ -280,27 +416,27 @@ export function ImageViewerModal({
             if (touchStartX === null) return
             const diff = touchStartX - e.changedTouches[0].clientX
             if (diff > 45) {
-              setCurrentIndex((prev) => (prev + 1) % photos.length)
+              goNext()
             } else if (diff < -45) {
-              setCurrentIndex((prev) => (prev - 1 + photos.length) % photos.length)
+              goPrev()
             }
             setTouchStartX(null)
           }}
-          onClick={() => handlePhotoClick(currentPhoto.id)}
+          onClick={() => handlePhotoClick(targetPhoto.id)}
           className="
-            relative flex-1 bg-black flex items-center justify-center
-            min-h-[320px] sm:min-h-[460px] md:min-h-[560px] max-h-[58vh] md:max-h-[88vh]
+            relative flex-1 bg-neutral-950 flex items-center justify-center
+            h-[42vh] sm:h-[52vh] md:h-[78vh]
             p-2 sm:p-4 overflow-hidden select-none cursor-pointer
           "
           title="Double-click to like photo"
         >
-          {/* Previous Arrow */}
+          {/* Previous Arrow Button */}
           {photos.length > 1 && (
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation()
-                setCurrentIndex((prev) => (prev - 1 + photos.length) % photos.length)
+                goPrev()
               }}
               aria-label="Previous photo"
               className="
@@ -316,20 +452,41 @@ export function ImageViewerModal({
             </button>
           )}
 
-          {/* Pure Zero-Crop Image */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            key={webSrc}
-            src={webSrc}
-            alt={currentPhoto.alt || currentPhoto.title || 'Nepalora Photograph'}
-            className="
-              max-h-[54vh] md:max-h-[84vh] max-w-full w-auto h-auto
-              object-contain select-none m-auto block rounded-sm
-            "
-            draggable={false}
-          />
+          {/* Next Arrow Button */}
+          {photos.length > 1 && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                goNext()
+              }}
+              aria-label="Next photo"
+              className="
+                absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-30
+                w-9 h-9 sm:w-10 sm:h-10 rounded-full
+                bg-black/60 hover:bg-black/85 text-white
+                border border-white/25 shadow-xl
+                flex items-center justify-center transition-all
+                hover:scale-105 active:scale-90 cursor-pointer
+              "
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          )}
 
-          {/* Big Instagram Floating Heart Overlay */}
+          {/* Fixed-Size Stage Container: Images Crossfade & Parallax Inside */}
+          <div className="relative w-full h-full flex items-center justify-center">
+            <div className="absolute inset-0" style={outgoingStyle}>
+              <StageImage photo={current.photo} />
+            </div>
+            {incoming && (
+              <div className="absolute inset-0" style={incomingStyle}>
+                <StageImage photo={incoming.photo} />
+              </div>
+            )}
+          </div>
+
+          {/* Big Floating Heart Overlay */}
           {bigHeartKey && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-40">
               <svg
@@ -356,85 +513,73 @@ export function ImageViewerModal({
               double-tap to like
             </div>
           )}
-
-          {/* Next Arrow */}
-          {photos.length > 1 && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                setCurrentIndex((prev) => (prev + 1) % photos.length)
-              }}
-              aria-label="Next photo"
-              className="
-                absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-30
-                w-9 h-9 sm:w-10 sm:h-10 rounded-full
-                bg-black/60 hover:bg-black/85 text-white
-                border border-white/25 shadow-xl
-                flex items-center justify-center transition-all
-                hover:scale-105 active:scale-90 cursor-pointer
-              "
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          )}
         </div>
 
         {/* ========================================================= */}
-        {/* RIGHT PANE: INSTAGRAM SIDEBAR (Header, Caption, Actions)  */}
+        {/* RIGHT PANE: BRANDED SIDEBAR (Header, Caption, Actions)    */}
         {/* ========================================================= */}
         <div
           className="
             w-full md:w-[380px] lg:w-[420px] flex-shrink-0
-            bg-[#121212] text-white border-t md:border-t-0 md:border-l border-white/10
+            bg-white dark:bg-[#141414] text-ink dark:text-white
+            border-t md:border-t-0 md:border-l border-hairline dark:border-white/10
             flex flex-col justify-between overflow-hidden
           "
         >
-          {/* 1. TOP HEADER (Avatar + Username + Location) */}
-          <div className="p-4 border-b border-white/10 flex items-center justify-between gap-3 bg-[#181818]/60">
+          {/* 1. TOP HEADER (Nepalora Logo Emblem + Username + Location) */}
+          <div className="p-3.5 sm:p-4 border-b border-hairline dark:border-white/10 flex items-center justify-between gap-3 bg-neutral-50/70 dark:bg-[#181818]/60">
             <div className="flex items-center gap-3">
+              {/* Nepalora Brand Logo Emblem */}
               <div className="w-9 h-9 rounded-full p-[2px] bg-gradient-to-tr from-accent-red via-accent-gold to-accent-blue flex-shrink-0 shadow-xs">
-                <div className="w-full h-full rounded-full bg-black flex items-center justify-center text-white">
-                  <Mountain className="w-4 h-4 text-accent-gold" />
+                <div className="w-full h-full rounded-full bg-white dark:bg-black flex items-center justify-center text-ink dark:text-white">
+                  <Mountain className="w-4 h-4 text-accent-red dark:text-accent-gold" />
                 </div>
               </div>
 
               <div className="leading-tight">
-                <div className="flex items-center gap-1.5 font-bold text-xs text-white">
-                  <span>soulofnepal</span>
-                  <span className="w-3.5 h-3.5 rounded-full bg-accent-blue flex items-center justify-center text-[9px] text-white">
+                <div className="flex items-center gap-1.5 font-bold text-xs text-ink dark:text-white">
+                  <span>Nepalora</span>
+                  <span className="w-3.5 h-3.5 rounded-full bg-accent-blue flex items-center justify-center text-[9px] text-white font-bold">
                     ✓
                   </span>
                 </div>
-                {currentPhoto.location ? (
-                  <div className="flex items-center gap-1 text-[11px] text-white/70">
-                    <MapPin className="w-3 h-3 text-accent-red flex-shrink-0" />
-                    <span className="truncate">{currentPhoto.location}</span>
-                  </div>
-                ) : (
-                  <span className="text-[11px] text-white/50">Nepal Himalayas</span>
-                )}
+                <div
+                  key={targetPhoto.id}
+                  className="animate-in fade-in-0 duration-200"
+                >
+                  {targetPhoto.location ? (
+                    <div className="flex items-center gap-1 text-[11px] text-ink-secondary dark:text-white/70">
+                      <MapPin className="w-3 h-3 text-accent-red flex-shrink-0" />
+                      <span className="truncate max-w-[180px] sm:max-w-[220px]">{targetPhoto.location}</span>
+                    </div>
+                  ) : (
+                    <span className="text-[11px] text-ink-tertiary dark:text-white/50">Nepal Himalayas</span>
+                  )}
+                </div>
               </div>
             </div>
 
-            <span className="text-[11px] font-mono text-white/60 px-2 py-0.5 rounded-md bg-white/10">
-              {currentIndex + 1}/{photos.length}
+            <span className="text-[11px] font-mono text-ink-tertiary dark:text-white/60 px-2.5 py-0.5 rounded-md bg-neutral-200/60 dark:bg-white/10 font-semibold">
+              {targetIndex + 1}/{photos.length}
             </span>
           </div>
 
           {/* 2. MIDDLE CONTENT (Scrollable Post Caption) */}
-          <div className="p-4 sm:p-5 flex-1 overflow-y-auto space-y-3.5 max-h-[30vh] md:max-h-[calc(88vh-180px)]">
+          <div
+            key={targetPhoto.id}
+            className="p-4 sm:p-5 flex-1 overflow-y-auto space-y-3 max-h-[26vh] md:max-h-[calc(88vh-180px)] animate-in fade-in-0 duration-200"
+          >
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Mountain className="w-3.5 h-3.5 text-accent-blue" />
+              <div className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Mountain className="w-3.5 h-3.5 text-accent-red dark:text-accent-blue" />
               </div>
 
-              <div className="space-y-1.5 flex-1 text-xs text-white/90 leading-relaxed">
+              <div className="space-y-1.5 flex-1 text-xs text-ink-secondary dark:text-white/90 leading-relaxed">
                 <p>
-                  <span className="font-bold text-white mr-1.5">soulofnepal</span>
-                  {currentPhoto.title && (
-                    <span className="font-semibold text-accent-gold mr-1.5">
-                      {currentPhoto.title} —
+                  <span className="font-bold text-ink dark:text-white mr-1.5">Nepalora</span>
+                  {targetPhoto.title && (
+                    <span className="font-semibold text-ink dark:text-accent-gold mr-1.5">
+                      {targetPhoto.title} —
                     </span>
                   )}
                   <span
@@ -445,32 +590,32 @@ export function ImageViewerModal({
                         : undefined
                     }
                   >
-                    {currentPhoto.caption || currentPhoto.title || 'Himalayan visual field note.'}
+                    {targetPhoto.caption || targetPhoto.title || 'Himalayan visual field note.'}
                   </span>
                 </p>
 
-                {currentPhoto.slot && (
-                  <div className="pt-2 flex items-center gap-2 text-[10px] text-white/50 uppercase font-mono tracking-wider">
-                    <span>Collection: {currentPhoto.slot.replace(/_/g, ' ')}</span>
+                {(targetPhoto.category || targetPhoto.slot) && (
+                  <div className="pt-2 flex items-center gap-2 text-[10px] text-ink-tertiary dark:text-white/50 uppercase font-mono tracking-wider">
+                    <span>Category: {(targetPhoto.category || targetPhoto.slot || '').replace(/_/g, ' ')}</span>
                   </div>
                 )}
               </div>
             </div>
           </div>
 
-          {/* 3. BOTTOM PINNED INSTAGRAM ACTION BAR (Burst Particles + Like + Share) */}
-          <div className="p-4 border-t border-white/10 bg-[#181818]/60 space-y-2.5">
+          {/* 3. BOTTOM ACTION BAR (Like + Share + Pure Count) */}
+          <div className="p-3.5 sm:p-4 border-t border-hairline dark:border-white/10 bg-neutral-50/70 dark:bg-[#181818]/60 space-y-2">
             <div className="flex items-center gap-4">
-              {/* Instagram Like Button with Radial Particle Burst */}
+              {/* Like Button with Radial Particle Burst */}
               <button
                 type="button"
-                onClick={(e) => handleLikeToggle(currentPhoto.id, e)}
+                onClick={(e) => handleLikeToggle(targetPhoto.id, e)}
                 aria-label={currentLike.liked ? 'Unlike' : 'Like'}
                 aria-pressed={currentLike.liked}
                 className="relative w-7 h-7 flex items-center justify-center cursor-pointer p-0 bg-transparent border-0 select-none"
                 title={currentLike.liked ? 'Unlike' : 'Like'}
               >
-                {/* Outline Heart (visible when unliked) */}
+                {/* Outline Heart */}
                 <svg
                   width="24"
                   height="24"
@@ -486,7 +631,7 @@ export function ImageViewerModal({
                   <path d={HEART_PATH} />
                 </svg>
 
-                {/* Filled Heart (pops in when liked) */}
+                {/* Filled Heart */}
                 <svg
                   width="24"
                   height="24"
@@ -519,16 +664,16 @@ export function ImageViewerModal({
                 ))}
               </button>
 
-              {/* Share / Send Plane */}
+              {/* Share Plane */}
               <button
                 type="button"
-                onClick={(e) => handleShare(currentPhoto, e)}
+                onClick={(e) => handleShare(targetPhoto, e)}
                 aria-label="Share photo"
-                className="flex items-center gap-1.5 transition-transform active:scale-110 cursor-pointer text-white hover:text-white/80"
+                className="flex items-center gap-1.5 transition-transform active:scale-110 cursor-pointer text-ink dark:text-white hover:opacity-80"
                 title="Share photo link"
               >
                 {copiedShare ? (
-                  <div className="flex items-center gap-1 text-emerald-400 text-xs font-semibold">
+                  <div className="flex items-center gap-1 text-emerald-500 dark:text-emerald-400 text-xs font-semibold">
                     <Check className="w-5 h-5" />
                     <span>Link Copied</span>
                   </div>
@@ -538,16 +683,11 @@ export function ImageViewerModal({
               </button>
             </div>
 
-            {/* Like Counter in Bold */}
-            <div className="space-y-0.5">
-              <p className="font-bold text-xs text-white">
-                {currentLike.count.toLocaleString()}{' '}
-                {currentLike.count === 1 ? 'like' : 'likes'}
-              </p>
-              <p className="text-[10px] text-white/50 uppercase font-mono tracking-wider">
-                Field Guide • Nepalora
-              </p>
-            </div>
+            {/* Clean Bold Like Counter Only */}
+            <p className="font-bold text-xs text-ink dark:text-white">
+              {currentLike.count.toLocaleString()}{' '}
+              {currentLike.count === 1 ? 'like' : 'likes'}
+            </p>
           </div>
         </div>
       </div>

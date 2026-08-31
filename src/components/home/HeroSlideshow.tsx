@@ -150,9 +150,11 @@ export function HeroSlideshow({ slides = [] }: HeroSlideshowProps) {
               <ProgressiveImage
                 src={img.src}
                 alt={img.alt}
+                profile="hero"
                 containerClassName="w-full h-full"
                 className="w-full h-full object-cover object-center"
                 loading={idx === 0 ? 'eager' : 'lazy'}
+                fetchPriority={idx === 0 ? 'high' : undefined}
               />
             </div>
           ))

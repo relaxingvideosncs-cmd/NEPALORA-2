@@ -100,19 +100,16 @@ export function PolaroidGallery({
     let cardStep = 0
     let setWidth = 0
     let position = 0
-    const speed = 0.4
-    let paused = false
-    let manualLock = false
+    const speed = 0.5
     let isTouching = false
+    let isHovered = false
     let rafId: number | null = null
 
     let touchStartX = 0
     let touchStartY = 0
-    let touchLastX = 0
     let touchStartTime = 0
     let touchStartPosition = 0
     let isSwipingHorizontal: boolean | null = null
-    let movedDistance = 0
 
     const trackEl: HTMLDivElement = track
 
@@ -123,13 +120,21 @@ export function PolaroidGallery({
       const style = window.getComputedStyle(card)
       cardStep = card.offsetWidth + parseFloat(style.marginLeft) + parseFloat(style.marginRight)
       setWidth = cardStep * normalizedPhotos.length
-      position = setWidth * 2
+      if (position === 0) {
+        position = setWidth * 2
+      }
       trackEl.style.transition = 'none'
       trackEl.style.transform = `translate3d(${-position}px, 0, 0)`
     }
 
+    function wrapPosition() {
+      if (setWidth <= 0) return
+      while (position >= setWidth * 3) position -= setWidth
+      while (position < setWidth * 2) position += setWidth
+    }
+
     function tick() {
-      if (!paused && !manualLock && !isTouching && setWidth > 0 && trackEl && activePhotoIndex === null) {
+      if (!isTouching && !isHovered && setWidth > 0 && trackEl && activePhotoIndex === null) {
         position += speed
         if (position >= setWidth * 3) {
           position -= setWidth
@@ -141,36 +146,17 @@ export function PolaroidGallery({
       rafId = requestAnimationFrame(tick)
     }
 
-    function wrapPosition() {
-      while (position >= setWidth * 3) position -= setWidth
-      while (position < setWidth * 2) position += setWidth
-      trackEl.style.transform = `translate3d(${-position}px, 0, 0)`
-    }
-
-    let resumeTimeout: NodeJS.Timeout | null = null
-
-    function scheduleResume(delay = 5000) {
-      if (resumeTimeout) clearTimeout(resumeTimeout)
-      paused = true
-      resumeTimeout = setTimeout(() => {
-        paused = false
-        manualLock = false
-      }, delay)
-    }
-
     function goTo(delta: number) {
       if (!trackEl || setWidth === 0) return
-      if (resumeTimeout) clearTimeout(resumeTimeout)
-      manualLock = true
       position += delta
-      trackEl.style.transition = 'transform 0.45s cubic-bezier(.16, 1, .3, 1)'
+      trackEl.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
       trackEl.style.transform = `translate3d(${-position}px, 0, 0)`
 
       const handleTransitionEnd = () => {
         trackEl.removeEventListener('transitionend', handleTransitionEnd)
         trackEl.style.transition = 'none'
         wrapPosition()
-        scheduleResume(5000)
+        trackEl.style.transform = `translate3d(${-position}px, 0, 0)`
       }
 
       trackEl.addEventListener('transitionend', handleTransitionEnd)
@@ -189,17 +175,13 @@ export function PolaroidGallery({
 
     const handleTouchStart = (e: TouchEvent) => {
       if (setWidth === 0) return
-      if (resumeTimeout) clearTimeout(resumeTimeout)
       isTouching = true
-      manualLock = true
       isDraggingRef.current = false
       touchStartX = e.touches[0].clientX
       touchStartY = e.touches[0].clientY
-      touchLastX = touchStartX
       touchStartTime = Date.now()
       touchStartPosition = position
       isSwipingHorizontal = null
-      movedDistance = 0
       trackEl.style.transition = 'none'
     }
 
@@ -209,7 +191,6 @@ export function PolaroidGallery({
       const currentY = e.touches[0].clientY
       const deltaX = touchStartX - currentX
       const deltaY = touchStartY - currentY
-      touchLastX = currentX
 
       if (isSwipingHorizontal === null) {
         if (Math.abs(deltaX) > 6 || Math.abs(deltaY) > 6) {
@@ -219,11 +200,11 @@ export function PolaroidGallery({
 
       if (isSwipingHorizontal) {
         if (e.cancelable) e.preventDefault()
-        movedDistance = deltaX
         if (Math.abs(deltaX) > 8) {
           isDraggingRef.current = true
         }
         position = touchStartPosition + deltaX
+        wrapPosition()
         trackEl.style.transform = `translate3d(${-position}px, 0, 0)`
       }
     }
@@ -231,45 +212,21 @@ export function PolaroidGallery({
     const handleTouchEnd = () => {
       if (!isTouching) return
       isTouching = false
+      wrapPosition()
+      trackEl.style.transition = 'none'
+      trackEl.style.transform = `translate3d(${-position}px, 0, 0)`
 
-      if (isSwipingHorizontal) {
-        const timeElapsed = Math.max(Date.now() - touchStartTime, 1)
-        const velocity = movedDistance / timeElapsed
-
-        let targetDelta = 0
-        if (movedDistance > 30 || velocity > 0.25) {
-          targetDelta = cardStep
-        } else if (movedDistance < -30 || velocity < -0.25) {
-          targetDelta = -cardStep
-        }
-
-        position = Math.round((touchStartPosition + targetDelta) / cardStep) * cardStep
-        trackEl.style.transition = 'transform 0.38s cubic-bezier(.16, 1, .3, 1)'
-        trackEl.style.transform = `translate3d(${-position}px, 0, 0)`
-
-        const handleSnapEnd = () => {
-          trackEl.removeEventListener('transitionend', handleSnapEnd)
-          trackEl.style.transition = 'none'
-          wrapPosition()
-          scheduleResume(5000)
-          setTimeout(() => {
-            isDraggingRef.current = false
-          }, 50)
-        }
-        trackEl.addEventListener('transitionend', handleSnapEnd)
-      } else {
-        scheduleResume(5000)
-        setTimeout(() => {
-          isDraggingRef.current = false
-        }, 50)
-      }
+      setTimeout(() => {
+        isDraggingRef.current = false
+      }, 50)
     }
 
     const handleMouseEnter = () => {
-      paused = true
+      isHovered = true
     }
+
     const handleMouseLeave = () => {
-      paused = false
+      isHovered = false
     }
 
     galleryEl?.addEventListener('mouseenter', handleMouseEnter)
@@ -283,10 +240,7 @@ export function PolaroidGallery({
     rafId = requestAnimationFrame(tick)
 
     const handleResize = () => {
-      const wasPaused = paused
-      paused = true
       measure()
-      paused = wasPaused
     }
     window.addEventListener('resize', handleResize)
 
@@ -406,6 +360,7 @@ export function PolaroidGallery({
                     <ProgressiveImage
                       src={photo.src}
                       alt={photo.alt}
+                      profile="thumb"
                       containerClassName="w-full h-full"
                       className="w-full h-full object-cover block group-hover:scale-103 transition-transform duration-500"
                       loading="lazy"

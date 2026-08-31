@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 
 const VALID_SETTINGS_COLUMNS = new Set([
@@ -118,6 +119,12 @@ async function handleSaveSettings(req: NextRequest) {
         .limit(1)
         .maybeSingle()
       savedSettings = refreshed || { id: existing?.id, ...cleanPayload }
+    }
+
+    try {
+      revalidatePath('/', 'layout')
+    } catch (e) {
+      console.warn('Settings revalidation notice:', e)
     }
 
     return NextResponse.json({ success: true, settings: savedSettings })

@@ -20,9 +20,9 @@ import {
   Check,
 } from 'lucide-react'
 import { SiteSettingsRecord } from '@/types/database'
-import { compressImageClient } from '@/lib/cloudinary/clientCompress'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
+import { getWebImageUrl } from '@/lib/cloudinary/imageHelper'
 
 async function safeParseResponse(res: Response) {
   const text = await res.text()
@@ -136,14 +136,10 @@ export default function SiteSettingsAdminPage() {
     setSaveNotice(null)
 
     try {
-      const compressed = await compressImageClient(file, {
-        maxDimension: fieldName === 'favicon_url' ? 256 : 1600,
-        quality: 0.88,
-      })
-
       const uploadForm = new FormData()
-      uploadForm.append('file', compressed)
+      uploadForm.append('file', file)
       uploadForm.append('title', `Brand Asset - ${fieldName}`)
+      uploadForm.append('folder', 'nepalora/site')
 
       const res = await fetch('/api/upload', {
         method: 'POST',
@@ -347,7 +343,7 @@ export default function SiteSettingsAdminPage() {
               <div className="mt-2 h-24 rounded-lg bg-bg-elevated border border-dashed border-hairline-strong flex items-center justify-center overflow-hidden p-2">
                 {formData.logo_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={formData.logo_url} alt="Logo" className="max-h-full max-w-full object-contain" />
+                  <img src={getWebImageUrl(formData.logo_url)} alt="Logo" className="max-h-full max-w-full object-contain" />
                 ) : (
                   <span className="text-[10px] text-ink-tertiary">No logo uploaded</span>
                 )}
@@ -404,7 +400,7 @@ export default function SiteSettingsAdminPage() {
               <div className="mt-2 h-24 rounded-lg bg-bg-elevated border border-dashed border-hairline-strong flex items-center justify-center overflow-hidden p-2">
                 {formData.full_logo_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={formData.full_logo_url} alt="Full Logo" className="max-h-full max-w-full object-contain" />
+                  <img src={getWebImageUrl(formData.full_logo_url)} alt="Full Logo" className="max-h-full max-w-full object-contain" />
                 ) : (
                   <span className="text-[10px] text-ink-tertiary">No full logo uploaded</span>
                 )}
@@ -461,7 +457,7 @@ export default function SiteSettingsAdminPage() {
               <div className="mt-2 h-24 rounded-lg bg-bg-elevated border border-dashed border-hairline-strong flex items-center justify-center overflow-hidden p-2">
                 {formData.favicon_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={formData.favicon_url} alt="Favicon" className="w-8 h-8 object-contain" />
+                  <img src={getWebImageUrl(formData.favicon_url)} alt="Favicon" className="w-8 h-8 object-contain" />
                 ) : (
                   <span className="text-[10px] text-ink-tertiary">No favicon uploaded</span>
                 )}
@@ -518,7 +514,7 @@ export default function SiteSettingsAdminPage() {
               <div className="mt-2 h-24 rounded-lg bg-bg-elevated border border-dashed border-hairline-strong flex items-center justify-center overflow-hidden p-2">
                 {formData.og_image_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={formData.og_image_url} alt="OG Banner" className="max-h-full max-w-full object-cover" />
+                  <img src={getWebImageUrl(formData.og_image_url)} alt="OG Banner" className="max-h-full max-w-full object-cover" />
                 ) : (
                   <span className="text-[10px] text-ink-tertiary">No OG image uploaded</span>
                 )}

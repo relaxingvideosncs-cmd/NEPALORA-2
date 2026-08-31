@@ -11,6 +11,25 @@ export interface ValidationResult {
   data?: ArticleJSON
 }
 
+function normalizeCategory(cat?: string): string {
+  if (!cat) return 'trekking-adventure'
+  const lower = cat.toLowerCase().trim()
+  if (lower.includes('prepare')) return 'prepare-for-nepal'
+  if (lower.includes('trek') || lower.includes('adventure') || lower.includes('mountain')) return 'trekking-adventure'
+  if (lower.includes('recover') || lower.includes('heal') || lower.includes('yoga') || lower.includes('wellness')) return 'recovery-healing'
+  
+  return lower.replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '') || 'trekking-adventure'
+}
+
+function normalizeSlug(slug?: string, title?: string): string {
+  const text = (slug || title || 'untitled-guide').trim()
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/[\s_-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'untitled-guide'
+}
+
 export function validateArticleJSON(input: unknown): ValidationResult {
   const errors: ValidationError[] = []
 
@@ -21,60 +40,51 @@ export function validateArticleJSON(input: unknown): ValidationResult {
     }
   }
 
-  const data = input as Partial<ArticleJSON>
+  const raw = input as Record<string, any>
 
   // Required top-level fields
-  if (!data.title || typeof data.title !== 'string' || data.title.trim() === '') {
+  const title = (raw.title || '').toString().trim()
+  if (!title) {
     errors.push({ path: 'title', message: 'Missing or empty "title" field.' })
   }
 
-  if (!data.slug || typeof data.slug !== 'string' || data.slug.trim() === '') {
-    errors.push({ path: 'slug', message: 'Missing or empty "slug" field.' })
-  } else if (!/^[a-z0-9-]+$/.test(data.slug)) {
-    errors.push({ path: 'slug', message: '"slug" must only contain lowercase alphanumeric characters and hyphens.' })
+  const slug = normalizeSlug(raw.slug, title)
+  const category = normalizeCategory(raw.category)
+  const excerpt = (raw.excerpt || '').toString().trim() || `${title} — A comprehensive guide on Nepalora.`
+  const author = (raw.author || 'Nepalora Editorial').toString().trim()
+
+  // Process Tags
+  let tags: string[] = []
+  if (Array.isArray(raw.tags)) {
+    tags = raw.tags
+      .map((t) => (typeof t === 'string' ? t.trim().toLowerCase() : ''))
+      .filter(Boolean)
+  } else if (typeof raw.tags === 'string') {
+    tags = raw.tags.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean)
+  }
+  if (tags.length === 0) {
+    tags = ['nepal', 'himalayas', 'travel']
   }
 
-  if (!data.category || typeof data.category !== 'string' || data.category.trim() === '') {
-    errors.push({ path: 'category', message: 'Missing or empty "category" field.' })
-  }
-
-  if (!data.excerpt || typeof data.excerpt !== 'string' || data.excerpt.trim() === '') {
-    errors.push({ path: 'excerpt', message: 'Missing or empty "excerpt" field.' })
-  }
-
-  if (data.tags !== undefined) {
-    if (!Array.isArray(data.tags)) {
-      errors.push({ path: 'tags', message: '"tags" must be an array of strings.' })
-    } else {
-      data.tags.forEach((tag, idx) => {
-        if (typeof tag !== 'string') {
-          errors.push({ path: `tags[${idx}]`, message: 'Tag item must be a string.' })
-        }
-      })
-    }
-  }
-
-  if (!data.blocks || !Array.isArray(data.blocks)) {
+  // Process Blocks
+  if (!raw.blocks || !Array.isArray(raw.blocks)) {
     errors.push({ path: 'blocks', message: 'Missing or invalid "blocks" array.' })
-    return { isValid: errors.length === 0, errors, data: errors.length === 0 ? (data as ArticleJSON) : undefined }
+    return { isValid: false, errors }
   }
 
   const allowedBlockTypes: BlockType[] = ['paragraph', 'heading', 'list', 'quote', 'image']
+  const cleanBlocks: ArticleBlock[] = []
 
-  data.blocks.forEach((block: any, index: number) => {
+  raw.blocks.forEach((block: any, index: number) => {
     const blockPath = `blocks[${index}]`
 
     if (!block || typeof block !== 'object') {
-      errors.push({ path: blockPath, message: 'Block must be an object.' })
       return
     }
 
-    if (!block.type || typeof block.type !== 'string') {
-      errors.push({ path: `${blockPath}.type`, message: 'Block is missing "type".' })
-      return
-    }
+    const type = (block.type || '').toString().toLowerCase().trim() as BlockType
 
-    if (!allowedBlockTypes.includes(block.type)) {
+    if (!allowedBlockTypes.includes(type)) {
       errors.push({
         path: `${blockPath}.type`,
         message: `"type" is not recognized: "${block.type}". Allowed values: ${allowedBlockTypes.join(', ')}`,
@@ -82,67 +92,111 @@ export function validateArticleJSON(input: unknown): ValidationResult {
       return
     }
 
-    switch (block.type) {
+    switch (type) {
       case 'paragraph': {
-        if (!block.text && !block.content) {
-          errors.push({
-            path: blockPath,
-            message: 'Paragraph block must contain either "text" string or "content" array of formatted spans.',
+        const text = (block.text || '').toString().trim()
+        if (text || (Array.isArray(block.content) && block.content.length > 0)) {
+          cleanBlocks.push({
+            type: 'paragraph',
+            text: text || undefined,
+            content: Array.isArray(block.content) ? block.content : undefined,
           })
-        }
-        if (block.content && !Array.isArray(block.content)) {
-          errors.push({ path: `${blockPath}.content`, message: '"content" must be an array of spans.' })
         }
         break
       }
       case 'heading': {
-        if (!block.text || typeof block.text !== 'string') {
+        const text = (block.text || '').toString().trim()
+        if (!text) {
           errors.push({ path: `${blockPath}.text`, message: 'Heading block requires a "text" string.' })
+          return
         }
-        if (![2, 3, 4].includes(block.level)) {
-          errors.push({
-            path: `${blockPath}.level`,
-            message: `Heading level must be 2, 3, or 4. Received: ${block.level}. H1 is reserved for the article title.`,
-          })
-        }
+        let level = Number(block.level) || 2
+        if (level < 2 || level > 4) level = 2
+        cleanBlocks.push({
+          type: 'heading',
+          level: level as 2 | 3 | 4,
+          text,
+        })
         break
       }
       case 'list': {
-        if (!['bullet', 'numbered'].includes(block.style)) {
-          errors.push({
-            path: `${blockPath}.style`,
-            message: `List style must be either "bullet" or "numbered". Received: "${block.style}".`,
-          })
+        let style = (block.style || 'bullet').toString().toLowerCase().trim()
+        if (style === 'unordered' || style !== 'numbered') style = 'bullet'
+        let items: string[] = []
+        if (Array.isArray(block.items)) {
+          items = block.items.map((it: any) => (it ? it.toString().trim() : '')).filter(Boolean)
         }
-        if (!Array.isArray(block.items) || block.items.length === 0) {
+        if (items.length === 0) {
           errors.push({ path: `${blockPath}.items`, message: 'List block requires a non-empty "items" array.' })
+          return
         }
+        cleanBlocks.push({
+          type: 'list',
+          style: style as 'bullet' | 'numbered',
+          items,
+        })
         break
       }
       case 'quote': {
-        if (!block.text || typeof block.text !== 'string') {
+        const text = (block.text || '').toString().trim()
+        if (!text) {
           errors.push({ path: `${blockPath}.text`, message: 'Quote block requires a "text" string.' })
+          return
         }
+        cleanBlocks.push({
+          type: 'quote',
+          text,
+          author: block.author ? block.author.toString().trim() : undefined,
+        })
         break
       }
       case 'image': {
-        if (!block.src || typeof block.src !== 'string' || block.src.trim() === '') {
+        const src = (block.src || '').toString().trim()
+        if (!src) {
           errors.push({ path: `${blockPath}.src`, message: 'Image block requires a valid "src" URL.' })
+          return
         }
-        if (block.alignment && !['left', 'center', 'right'].includes(block.alignment)) {
-          errors.push({
-            path: `${blockPath}.alignment`,
-            message: 'Image alignment must be "left", "center", or "right".',
-          })
-        }
+        let alignment = (block.alignment || 'center').toString().toLowerCase().trim()
+        if (!['left', 'center', 'right'].includes(alignment)) alignment = 'center'
+        cleanBlocks.push({
+          type: 'image',
+          src,
+          alt: block.alt ? block.alt.toString().trim() : title,
+          title: block.title ? block.title.toString().trim() : undefined,
+          caption: block.caption ? block.caption.toString().trim() : undefined,
+          credit: block.credit ? block.credit.toString().trim() : undefined,
+          alignment: alignment as 'left' | 'center' | 'right',
+        })
         break
       }
     }
   })
 
+  if (cleanBlocks.length === 0) {
+    errors.push({ path: 'blocks', message: 'Article must contain at least one valid content block.' })
+  }
+
+  const normalizedArticle: ArticleJSON = {
+    title,
+    slug,
+    category: category as any,
+    excerpt,
+    author,
+    tags,
+    featured_image: raw.featured_image
+      ? {
+          src: (raw.featured_image.src || '').toString().trim(),
+          alt: (raw.featured_image.alt || title).toString().trim(),
+          caption: raw.featured_image.caption ? raw.featured_image.caption.toString().trim() : undefined,
+          credit: raw.featured_image.credit ? raw.featured_image.credit.toString().trim() : undefined,
+        }
+      : undefined,
+    blocks: cleanBlocks,
+  }
+
   return {
     isValid: errors.length === 0,
     errors,
-    data: errors.length === 0 ? (data as ArticleJSON) : undefined,
+    data: errors.length === 0 ? normalizedArticle : undefined,
   }
 }

@@ -12,8 +12,7 @@ export const metadata = {
   description: 'Post-trek wellness, yoga, meditation, breathwork, Ayurveda, and healing retreats in Nepal.',
 }
 
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
+export const revalidate = 3600
 
 export default async function RecoveryHealingPage() {
   const categorySlug = 'recovery-healing'

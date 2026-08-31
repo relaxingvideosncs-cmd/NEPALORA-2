@@ -188,12 +188,12 @@ function PublicHeader({ isMaintenance = false, settings }: HeaderProps) {
         </div>
       </header>
 
-      {/* Extreme Ergonomics Mobile Navigation Drawer (Portaled directly into body) */}
+      {/* Mobile Navigation Drawer (Portaled directly into body with guaranteed contrast in Day & Night modes) */}
       {mounted &&
         createPortal(
           <div
             className={`
-              fixed inset-0 z-[99999] bg-black/60 backdrop-blur-md md:hidden
+              fixed inset-0 z-[99999] bg-black/60 dark:bg-black/80 backdrop-blur-md md:hidden
               transition-opacity duration-200 ease-out
               ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}
             `}
@@ -202,7 +202,7 @@ function PublicHeader({ isMaintenance = false, settings }: HeaderProps) {
             <div
               className={`
                 absolute top-0 right-0 bottom-0 w-4/5 max-w-sm
-                bg-bg-elevated border-l border-hairline p-6 shadow-2xl
+                bg-white dark:bg-[#121214] text-neutral-900 dark:text-white border-l border-hairline dark:border-white/10 p-6 shadow-2xl
                 flex flex-col justify-between overflow-y-auto
                 transition-transform duration-300 ease-out
                 ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}
@@ -211,14 +211,14 @@ function PublicHeader({ isMaintenance = false, settings }: HeaderProps) {
             >
               <div className="space-y-6">
                 {/* Mobile Drawer Header */}
-                <div className="flex items-center justify-between border-b border-hairline pb-4">
-                  <span className="font-display font-bold text-lg text-ink">
+                <div className="flex items-center justify-between border-b border-hairline dark:border-white/10 pb-4">
+                  <span className="font-display font-bold text-lg text-neutral-900 dark:text-white">
                     Navigation
                   </span>
                   <button
                     type="button"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="min-h-[44px] min-w-[44px] p-2 rounded-full text-ink hover:bg-bg flex items-center justify-center"
+                    className="min-h-[44px] min-w-[44px] p-2 rounded-full text-neutral-900 dark:text-white hover:bg-neutral-100 dark:hover:bg-white/10 flex items-center justify-center transition-colors"
                     aria-label="Close menu"
                   >
                     <X className="w-5 h-5" />
@@ -237,13 +237,16 @@ function PublicHeader({ isMaintenance = false, settings }: HeaderProps) {
                         onClick={() => setMobileMenuOpen(false)}
                         className={`
                           block px-4 py-3 rounded-xl text-base font-semibold transition-all min-h-[48px] flex items-center
-                          ${isActive
-                            ? 'bg-ink text-bg shadow-sm'
-                            : 'text-ink-secondary hover:text-ink hover:bg-bg'
+                          ${
+                            isActive
+                              ? 'bg-neutral-950 !text-white dark:bg-white dark:!text-neutral-950 font-bold shadow-sm'
+                              : 'text-neutral-900 dark:text-neutral-100 hover:text-accent-red dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/10 active:bg-neutral-200 dark:active:bg-white/15'
                           }
                         `}
                       >
-                        {link.label}
+                        <span className={isActive ? '!text-white dark:!text-neutral-950 font-bold' : 'text-neutral-900 dark:text-neutral-100'}>
+                          {link.label}
+                        </span>
                       </Link>
                     )
                   })}
@@ -251,25 +254,26 @@ function PublicHeader({ isMaintenance = false, settings }: HeaderProps) {
               </div>
 
               {/* Mobile Drawer Bottom Section */}
-              <div className="border-t border-hairline pt-6 space-y-4">
+              <div className="border-t border-hairline dark:border-white/10 pt-6 space-y-4">
                 <Link
                   href="/search"
                   onClick={() => setMobileMenuOpen(false)}
                   className="
                     flex items-center justify-between p-3.5 rounded-xl
-                    bg-bg border border-hairline text-sm font-medium text-ink
-                    min-h-[48px]
+                    bg-neutral-100 dark:bg-neutral-900/90 border border-hairline dark:border-white/10 text-sm font-medium
+                    text-neutral-900 dark:text-white
+                    hover:bg-neutral-200/80 dark:hover:bg-neutral-800 active:scale-[0.98] transition-all min-h-[48px]
                   "
                 >
-                  <span className="flex items-center gap-2">
-                    <Search className="w-4 h-4 text-ink-tertiary" />
+                  <span className="flex items-center gap-2.5 text-neutral-900 dark:text-white font-medium">
+                    <Search className="w-4 h-4 text-neutral-500 dark:text-neutral-400" />
                     Search guides
                   </span>
-                  <ArrowUpRight className="w-4 h-4 text-ink-tertiary" />
+                  <ArrowUpRight className="w-4 h-4 text-neutral-500 dark:text-neutral-400" />
                 </Link>
 
                 <div className="flex items-center justify-between pt-2">
-                  <span className="text-xs text-ink-secondary font-medium">Theme</span>
+                  <span className="text-xs text-neutral-600 dark:text-neutral-400 font-medium">Theme</span>
                   <ThemeToggle />
                 </div>
               </div>

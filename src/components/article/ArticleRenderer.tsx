@@ -16,6 +16,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import { ReadingProgress } from './ReadingProgress'
 import { ArticleActions } from './ArticleActions'
 import { Badge } from '@/components/ui/Badge'
+import { ProgressiveImage } from '@/components/common/ProgressiveImage'
 
 interface ArticleRendererProps {
   article: ArticleJSON
@@ -169,11 +170,10 @@ export function ArticleRenderer({
 
         return (
           <figure className={`my-8 ${alignClass}`}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <ProgressiveImage
               src={imgBlock.src}
               alt={imgBlock.alt || article.title}
-              title={imgBlock.title}
+              profile="article"
               className="w-full h-auto rounded-lg sm:rounded-xl border border-hairline shadow-xs object-cover max-h-[500px]"
               loading="lazy"
             />
@@ -236,11 +236,12 @@ export function ArticleRenderer({
           {/* Featured Cover Image */}
           {article.featured_image?.src && (
             <figure className="my-6">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <ProgressiveImage
                 src={article.featured_image.src}
                 alt={article.featured_image.alt || article.title}
+                profile="article"
                 className="w-full h-auto rounded-lg sm:rounded-xl border border-hairline shadow-xs object-cover max-h-[500px]"
+                loading="eager"
               />
               {(article.featured_image.caption || article.featured_image.credit) && (
                 <figcaption className="text-xs text-ink-tertiary mt-2 px-1 text-center">

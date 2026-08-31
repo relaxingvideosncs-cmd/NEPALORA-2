@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { getWebImageUrl } from '@/lib/cloudinary/imageHelper'
+import { getWebImageUrl, ImageProfile } from '@/lib/cloudinary/imageHelper'
 
 interface ProgressiveImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string
@@ -10,6 +10,7 @@ interface ProgressiveImageProps extends React.ImgHTMLAttributes<HTMLImageElement
   containerClassName?: string
   aspectRatio?: string
   optimizeWidth?: number
+  profile?: ImageProfile
 }
 
 export function ProgressiveImage({
@@ -19,19 +20,23 @@ export function ProgressiveImage({
   containerClassName = '',
   aspectRatio,
   optimizeWidth,
+  profile,
   loading = 'lazy',
   style,
   ...props
 }: ProgressiveImageProps) {
   const [hasError, setHasError] = useState(false)
-  const displaySrc = getWebImageUrl(src)
+  const [useFallbackOriginal, setUseFallbackOriginal] = useState(false)
+  
+  const displaySrc = useFallbackOriginal ? src : getWebImageUrl(src, profile, optimizeWidth)
 
   // Reset error state whenever src changes
   useEffect(() => {
     setHasError(false)
+    setUseFallbackOriginal(false)
   }, [src])
 
-  if (!displaySrc) {
+  if (!src) {
     return (
       <div
         className={`bg-neutral-200/60 dark:bg-neutral-800/60 ${containerClassName}`}
@@ -46,7 +51,7 @@ export function ProgressiveImage({
         className={`bg-neutral-200/60 dark:bg-neutral-800/60 flex items-center justify-center text-ink-tertiary text-xs p-2 text-center ${containerClassName}`}
         style={aspectRatio ? { aspectRatio, ...style } : style}
       >
-        <span className="truncate">Image unavailable</span>
+        <span className="truncate">{alt || 'Image unavailable'}</span>
       </div>
     )
   }
@@ -61,7 +66,13 @@ export function ProgressiveImage({
         src={displaySrc}
         alt={alt}
         loading={loading}
-        onError={() => setHasError(true)}
+        onError={() => {
+          if (!useFallbackOriginal && displaySrc !== src) {
+            setUseFallbackOriginal(true)
+          } else {
+            setHasError(true)
+          }
+        }}
         className={`w-full h-full object-cover block ${className}`}
         style={style}
         {...props}
